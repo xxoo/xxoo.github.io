@@ -97,6 +97,12 @@
 				}
 			}
 			chart.add(a);
+			chart.selected = 1;
+			chart.setRange(chart.index[0], chart.index[chart.index.length - 1]);
+			chart.cursor = chart.index[Math.round((chart.index.length - 1) / 2)];
+			/*document.body.firstChild.addEventListener('click', function () {
+				this.href = chart.copy().toDataURL();
+			});*/
 		};
 	</script>
 </head>
