@@ -67,6 +67,7 @@ const Chart = function () {
 		this[lines] = {};
 		this[mouseListener] = mousedown.bind(this);
 		this[stage] = ctn.appendChild(document.createElement('div'));
+		this[stage].style.width = this[stage].style.height = '100%';
 		this[stage].style.overflow = 'hidden';
 		this[stage].style.position = 'relative';
 		this[stage].addEventListener('contextmenu', function (evt) {
@@ -169,6 +170,43 @@ const Chart = function () {
 			draw.call(this);
 		}
 	};
+
+	Chart.prototype.getValue = function (c, pos, relative) {
+		if (!pos) {
+			pos = this.cursor;
+		}
+		if (this.indexOrder.hasOwnProperty(pos) && this[lines].hasOwnProperty(c)) {
+			pos = this.indexOrder[pos];
+			let data = new Float32Array(this[lines][c].data);
+			if (pos > this[lines][c].first && pos < this[lines][c].last) {
+				while (Number.isNaN(data[pos])) {
+					pos--;
+				}
+			}
+			return relative ? (data[pos] - this[lines][c].base) / this[lines][c].base : data[pos];
+		}
+	};
+
+	Chart.prototype.getValues = function (pos, relative) {
+		if (!pos) {
+			pos = this.cursor;
+		}
+		if (this.indexOrder.hasOwnProperty(pos)) {
+			let r = {};
+			pos = this.indexOrder[pos];
+			for (let c in this[lines]) {
+				let p = pos,
+					data = new Float32Array(this[lines][c].data);
+				if (pos > this[lines][c].first && pos < this[lines][c].last) {
+					while (Number.isNaN(data[p])) {
+						p--;
+					}
+				}
+				r[c] = relative ? (data[p] - this[lines][c].base) / this[lines][c].base : data[p];
+			}
+			return r;
+		}
+	}
 
 	Chart.prototype.center = function () {
 		let len = Math.ceil((this[end] - this[begin]) / 2);
@@ -557,7 +595,15 @@ const Chart = function () {
 	}
 
 	function checkCursor(cur) {
-		return this.index.length ? Math.max(Math.min(cur, this.index.length - 1), 0) : NaN;
+		if (this.index.length) {
+			if (Number.isNaN(cur)) {
+				return this.index.length - 1;
+			} else {
+				return Math.max(Math.min(cur, this.index.length - 1), 0);
+			}
+		} else {
+			return NaN;
+		}
 	}
 
 	function changeCursor(cur) {
