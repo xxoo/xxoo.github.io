@@ -54,18 +54,6 @@
 					}
 				}
 			});
-			let t, w = 0;
-			chart.onpaitbegin = function () {
-				t = Date.now();
-			};
-			chart.onpaitcancel = function () {
-				w += Date.now() - t;
-				console.log('canceled');
-			};
-			chart.onpaitend = function () {
-				console.log(Date.now() - t + w);
-				w = 0;
-			};
 			chart.sorting = function (a, b) {
 				return a - b;
 			};
