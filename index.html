@@ -46,8 +46,9 @@
 						chart.selected = undefined;
 						evt.target.style.fontWeight = '';
 					} else {
-						if (chart.selected) {
-							this.querySelector(`a[data-c="${chart.selected}"]`).style.fontWeight = '';
+						let el = this.querySelector(`a[data-c="${chart.selected}"]`);
+						if (el) {
+							el.style.fontWeight = '';
 						}
 						evt.target.style.fontWeight = 'bold';
 						chart.selected = evt.target.dataset.c;
@@ -77,7 +78,7 @@
 				let len = Math.round(total * (Math.random() - Math.random() + 1) / 2),
 					start = Math.round((total - len) * (Math.random() - Math.random() + 1) / 2);
 				a[j] = {
-					[start]: 1000
+					[start]: Math.round(10000 * (Math.random() - Math.random() + 1) / 2)
 				};
 				for (let i = start + 1; i < len + start; i++) {
 					a[j][i] = Math.min(Math.max(Math.round(a[j][i - 1] * (1 + (Math.random() - Math.random()) / 10)), 100),

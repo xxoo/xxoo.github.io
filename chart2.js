@@ -21,8 +21,10 @@ const Chart = function () {
 		MAX = Symbol('MAX'),
 		COLOR = Symbol('COLOR'),
 		POSITION = Symbol('POSITION'),
-		OFFSET = Symbol('OFFSET'),
+		BEGIN = Symbol('BEGIN'),
 		WV = Symbol('WV'),
+		X = Symbol('X'),
+		Y = Symbol('Y'),
 		paddingX = Symbol('paddingX'),
 		paddingY = Symbol('paddingY'),
 		paddingLeft = Symbol('paddingLeft'),
@@ -46,14 +48,16 @@ const Chart = function () {
 		attribute float HV;
 		attribute float MAX;
 		attribute float BASE;
-		attribute float OFFSET;
+		attribute float BEGIN;
+		attribute float X;
+		attribute float Y;
 		void main(void) {
 			if (POSITION.y != 0.0) {
-				gl_Position = vec4((POSITION.x - OFFSET) * 2.0 / WV - 1.0, ((POSITION.y - BASE) / BASE - MAX) * 2.0 / HV + 1.0, 0.0, 1.0);
-			} else if (WV != 0.0) {
-				gl_Position = vec4(OFFSET * 2.0 / WV - 1.0, POSITION.x, 0.0, 1.0);
-			} else if (OFFSET != 0.0) {
-				gl_Position = vec4(POSITION.x, OFFSET * -2.0 + 1.0, 0.0, 1.0);
+				gl_Position = vec4((POSITION.x - BEGIN) * 2.0 / WV - 1.0, ((POSITION.y - BASE) / BASE - MAX) * 2.0 / HV + 1.0, 0.0, 1.0);
+			} else if (X != 0.0) {
+				gl_Position = vec4(X * 2.0 / WV - 1.0, POSITION.x, 0.0, 1.0);
+			} else if (Y != 0.0) {
+				gl_Position = vec4(POSITION.x, Y * -2.0 + 1.0, 0.0, 1.0);
 			} else if (POSITION.x == 1.0) {
 				gl_Position = vec4(1.0, -1.0, 0.0, 1.0);
 			} else if (POSITION.x == 2.0) {
@@ -64,7 +68,7 @@ const Chart = function () {
 				gl_Position = vec4(-1.0, -1.0, 0.0, 1.0);
 			}
 		}`,
-		fs = `precision lowp float;
+		fs = `precision highp float;
 		uniform vec4 COLOR;
 		void main(void) {
 			gl_FragColor = COLOR;
@@ -110,7 +114,7 @@ const Chart = function () {
 		this[canvas3d].addEventListener('mousedown', this[mouseListener]);
 		this[canvas3d].addEventListener('wheel', wheel.bind(this));
 		this[ground] = this[canvas2d].getContext('2d');
-		this[gl] = this[canvas3d].getContext('webgl', {
+		this[gl] = this[canvas3d].getContext('webgl2', {
 			alpha: false,
 			premultipliedAlpha: false,
 			antialias: true,
@@ -131,13 +135,14 @@ const Chart = function () {
 		this[gl].useProgram(program);
 		this[POSITION] = this[gl].getAttribLocation(program, 'POSITION');
 		this[WV] = this[gl].getAttribLocation(program, 'WV');
-		this[OFFSET] = this[gl].getAttribLocation(program, 'OFFSET');
+		this[BEGIN] = this[gl].getAttribLocation(program, 'BEGIN');
 		this[HV] = this[gl].getAttribLocation(program, 'HV');
 		this[BASE] = this[gl].getAttribLocation(program, 'BASE');
 		this[MAX] = this[gl].getAttribLocation(program, 'MAX');
+		this[X] = this[gl].getAttribLocation(program, 'X');
+		this[Y] = this[gl].getAttribLocation(program, 'Y');
 		this[COLOR] = this[gl].getUniformLocation(program, 'COLOR');
 		this[gl].bindBuffer(this[gl].ARRAY_BUFFER, this[gl].createBuffer());
-		this[gl].vertexAttribPointer(this[POSITION], 2, this[gl].FLOAT, false, 0, 0);
 		this[gl].enableVertexAttribArray(this[POSITION]);
 		if (self.ResizeObserver) {
 			new ResizeObserver(syncSize.bind(this)).observe(this[stage]);
@@ -318,7 +323,6 @@ const Chart = function () {
 		canvas.width = this[canvas2d].width;
 		canvas.height = this[canvas2d].height;
 		ctx.drawImage(this[canvas2d], 0, 0, this[canvas2d].width, this[canvas2d].height);
-		this[gl].finish();
 		ctx.drawImage(this[canvas3d], 0, 0, this[canvas3d].width, this[canvas3d].height, this[paddingLeft] * devicePixelRatio, this[fontSize] * devicePixelRatio / 2, this[canvas3d].width, this[canvas3d].height);
 		return canvas;
 	};
@@ -600,7 +604,8 @@ const Chart = function () {
 				data[i++] = last;
 			}
 		}
-		this[gl].bufferData(this[gl].ARRAY_BUFFER, data, this[gl].DYNAMIC_DRAW);
+		this[gl].bufferData(this[gl].ARRAY_BUFFER, data, this[gl].STREAM_DRAW);
+		this[gl].vertexAttribPointer(this[POSITION], 2, this[gl].FLOAT, false, 0, 0);
 		calcLen.call(this);
 		let range = checkRange.call(this, this[begin], this[end]);
 		this[begin] = range[0];
@@ -908,13 +913,16 @@ const Chart = function () {
 			this[gl].vertexAttrib1f(this[WV], wv);
 			this[gl].vertexAttrib1f(this[HV], hv);
 			this[gl].vertexAttrib1f(this[MAX], this[max]);
+			this[gl].vertexAttrib1f(this[BEGIN], this[begin]);
 			this[gl].uniform4f(this[COLOR], this[lineColor][0], this[lineColor][1], this[lineColor][2], 1);
 			for (let c in this[lines]) {
 				let line = this[lines][c];
 				if (c === this[selected]) {
 					selPos = pos;
 				} else if (line.first < this[end] && line.last > this[begin]) {
-					drawPolyline.call(this, line, pos - line.first + Math.max(this[begin], line.first), pos - line.first + Math.min(this[end], line.last));
+					let bg = Math.max(this[begin], line.first);
+					this[gl].vertexAttrib1f(this[BASE], line.base);
+					this[gl].drawArrays(this[gl].LINE_STRIP, pos - line.first + bg, Math.min(this[end], line.last) - bg + 1);
 				}
 				pos += line.last - line.first + 1;
 			}
@@ -941,19 +949,11 @@ const Chart = function () {
 				} else {
 					colors[0] = this[selectedColor];
 				}
-				this[gl].vertexAttrib1f(this[WV], wv);
-				this[gl].vertexAttrib1f(this[HV], hv);
-				this[gl].vertexAttrib1f(this[MAX], this[max]);
+				this[gl].vertexAttrib1f(this[BASE], line.base);
 				for (let i = 0; i < sectionStarts.length; i++) {
 					this[gl].uniform4f(this[COLOR], colors[i][0], colors[i][1], colors[i][2], 1);
-					drawPolyline.call(this, line, selPos - line.first + sectionStarts[i], selPos - line.first + (i === sectionStarts.length - 1 ? Math.min(this[end], line.last) : sectionStarts[i + 1]));
+					this[gl].drawArrays(this[gl].LINE_STRIP, selPos - line.first + sectionStarts[i], (i === sectionStarts.length - 1 ? Math.min(this[end], line.last) : sectionStarts[i + 1]) - sectionStarts[i] + 1);
 				}
-			}
-
-			function drawPolyline(line, bg, ed) {
-				this[gl].vertexAttrib1f(this[OFFSET], this[begin]);
-				this[gl].vertexAttrib1f(this[BASE], line.base);
-				this[gl].drawArrays(this[gl].LINE_STRIP, bg, ed - bg + 1);
 			}
 
 			function pushx(i) {
@@ -980,11 +980,11 @@ const Chart = function () {
 			function drawxy(pos) {
 				for (let i = 0; i < pos.length; i++) {
 					if (pos[i].hasOwnProperty('x')) {
-						this[gl].vertexAttrib1f(this[WV], wv);
-						this[gl].vertexAttrib1f(this[OFFSET], pos[i].x);
+						this[gl].vertexAttrib1f(this[Y], 0);
+						this[gl].vertexAttrib1f(this[X], pos[i].x);
 					} else {
-						this[gl].vertexAttrib1f(this[WV], 0);
-						this[gl].vertexAttrib1f(this[OFFSET], pos[i].y);
+						this[gl].vertexAttrib1f(this[X], 0);
+						this[gl].vertexAttrib1f(this[Y], pos[i].y);
 					}
 					this[gl].drawArrays(this[gl].LINE_STRIP, 0, 2);
 				}
@@ -1015,8 +1015,8 @@ const Chart = function () {
 				}
 			}
 		}
-		this[gl].vertexAttrib1f(this[WV], 0);
-		this[gl].vertexAttrib1f(this[OFFSET], 0);
+		this[gl].vertexAttrib1f(this[X], 0);
+		this[gl].vertexAttrib1f(this[Y], 0);
 		this[gl].uniform4f(this[COLOR], this[rectColor][0], this[rectColor][1], this[rectColor][2], 1);
 		this[gl].drawArrays(this[gl].LINE_LOOP, 0, 4);
 		this[paiting] = 0;
@@ -1045,16 +1045,16 @@ const Chart = function () {
 		let btn, mousemove,
 			start = function (evt) {
 				btn = evt.button;
-				evt.target.removeEventListener('mousedown', this[mouseListener]);
-				evt.target.addEventListener('mousemove', mousemove);
-				evt.target.addEventListener('mouseup', mouseup);
+				this[canvas3d].removeEventListener('mousedown', this[mouseListener]);
+				this[canvas3d].addEventListener('mousemove', mousemove);
+				this[canvas3d].ownerDocument.addEventListener('mouseup', mouseup);
 			}.bind(this),
 			mouseup = function (evt) {
 				if (evt.button === btn) {
-					evt.target.style.cursor = 'default';
-					evt.target.removeEventListener('mousemove', mousemove);
-					evt.target.removeEventListener('mouseup', mouseup);
-					evt.target.addEventListener('mousedown', this[mouseListener]);
+					this[canvas3d].style.cursor = '';
+					this[canvas3d].removeEventListener('mousemove', mousemove);
+					this[canvas3d].ownerDocument.removeEventListener('mouseup', mouseup);
+					this[canvas3d].addEventListener('mousedown', this[mouseListener]);
 				}
 			}.bind(this);
 		if (evt.button === 0) {
@@ -1065,13 +1065,13 @@ const Chart = function () {
 					fireX = evt.offsetX - x;
 				}
 			}.bind(this);
-			evt.target.style.cursor = 'move';
+			this[canvas3d].style.cursor = 'move';
 			start(evt);
 		} else if (evt.button === 2 && !this.fixed) {
 			mousemove = function (evt) {
 				changeCursor.call(this, Math.min(Math.max(Math.round(this[begin] + evt.offsetX * (this[end] - this[begin]) / this[canvas3d].clientWidth), this[begin]), this[end]));
 			}.bind(this);
-			evt.target.style.cursor = 'crosshair';
+			this[canvas3d].style.cursor = 'crosshair';
 			start(evt);
 			mousemove(evt);
 		}
