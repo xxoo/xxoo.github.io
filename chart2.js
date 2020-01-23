@@ -42,37 +42,7 @@ const Chart = function () {
 		min = Symbol('min'),
 		lines = Symbol('lines'),
 		minLen = Symbol('minLen'),
-		mouseListener = Symbol('mouseListener'),
-		vs = `attribute vec2 POSITION;
-		attribute float WV;
-		attribute float HV;
-		attribute float MAX;
-		attribute float BASE;
-		attribute float BEGIN;
-		attribute float X;
-		attribute float Y;
-		void main(void) {
-			if (POSITION.y != 0.0) {
-				gl_Position = vec4((POSITION.x - BEGIN) * 2.0 / WV - 1.0, ((POSITION.y - BASE) / BASE - MAX) * 2.0 / HV + 1.0, 0.0, 1.0);
-			} else if (X != 0.0) {
-				gl_Position = vec4(X * 2.0 / WV - 1.0, POSITION.x, 0.0, 1.0);
-			} else if (Y != 0.0) {
-				gl_Position = vec4(POSITION.x, Y * -2.0 + 1.0, 0.0, 1.0);
-			} else if (POSITION.x == 1.0) {
-				gl_Position = vec4(1.0, -1.0, 0.0, 1.0);
-			} else if (POSITION.x == 2.0) {
-				gl_Position = vec4(1.0, 1.0, 0.0, 1.0);
-			} else if (POSITION.x == 3.0) {
-				gl_Position = vec4(-1.0, 1.0, 0.0, 1.0);
-			} else {
-				gl_Position = vec4(-1.0, -1.0, 0.0, 1.0);
-			}
-		}`,
-		fs = `precision highp float;
-		uniform vec4 COLOR;
-		void main(void) {
-			gl_FragColor = COLOR;
-		}`;
+		mouseListener = Symbol('mouseListener');
 
 	function Chart(ctn) {
 		this.fixed = false;
@@ -114,7 +84,7 @@ const Chart = function () {
 		this[canvas3d].addEventListener('mousedown', this[mouseListener]);
 		this[canvas3d].addEventListener('wheel', wheel.bind(this));
 		this[ground] = this[canvas2d].getContext('2d');
-		this[gl] = this[canvas3d].getContext('webgl2', {
+		this[gl] = this[canvas3d].getContext('webgl', {
 			alpha: false,
 			premultipliedAlpha: false,
 			antialias: true,
@@ -122,27 +92,55 @@ const Chart = function () {
 			depth: false,
 			preserveDrawingBuffer: true
 		});
-		let vertShader = this[gl].createShader(this[gl].VERTEX_SHADER),
-			fragShader = this[gl].createShader(this[gl].FRAGMENT_SHADER),
+		let vert = this[gl].createShader(this[gl].VERTEX_SHADER),
+			frag = this[gl].createShader(this[gl].FRAGMENT_SHADER),
 			program = this[gl].createProgram();
-		this[gl].shaderSource(vertShader, vs);
-		this[gl].shaderSource(fragShader, fs);
-		this[gl].compileShader(fragShader);
-		this[gl].compileShader(vertShader);
-		this[gl].attachShader(program, vertShader);
-		this[gl].attachShader(program, fragShader);
+		this[gl].shaderSource(vert, `attribute vec2 POSITION;
+		attribute float WV;
+		attribute float HV;
+		attribute float MAX;
+		attribute float BASE;
+		attribute float BEGIN;
+		attribute float X;
+		attribute float Y;
+		void main(void) {
+			if (POSITION.y != 0.0) {
+				gl_Position = vec4((POSITION.x - BEGIN) * 2.0 / WV - 1.0, ((POSITION.y - BASE) / BASE - MAX) * 2.0 / HV + 1.0, 0.0, 1.0);
+			} else if (X != 0.0) {
+				gl_Position = vec4(X * 2.0 / WV - 1.0, POSITION.x, 0.0, 1.0);
+			} else if (Y != 0.0) {
+				gl_Position = vec4(POSITION.x, Y * -2.0 + 1.0, 0.0, 1.0);
+			} else if (POSITION.x == 1.0) {
+				gl_Position = vec4(1.0, -1.0, 0.0, 1.0);
+			} else if (POSITION.x == 2.0) {
+				gl_Position = vec4(1.0, 1.0, 0.0, 1.0);
+			} else if (POSITION.x == 3.0) {
+				gl_Position = vec4(-1.0, 1.0, 0.0, 1.0);
+			} else {
+				gl_Position = vec4(-1.0, -1.0, 0.0, 1.0);
+			}
+		}`);
+		this[gl].shaderSource(frag, `uniform lowp vec4 COLOR;
+		void main(void) {
+			gl_FragColor = COLOR;
+		}`);
+		this[gl].compileShader(vert);
+		this[gl].compileShader(frag);
+		this[gl].attachShader(program, vert);
+		this[gl].attachShader(program, frag);
 		this[gl].linkProgram(program);
 		this[gl].useProgram(program);
 		this[POSITION] = this[gl].getAttribLocation(program, 'POSITION');
 		this[WV] = this[gl].getAttribLocation(program, 'WV');
-		this[BEGIN] = this[gl].getAttribLocation(program, 'BEGIN');
 		this[HV] = this[gl].getAttribLocation(program, 'HV');
-		this[BASE] = this[gl].getAttribLocation(program, 'BASE');
 		this[MAX] = this[gl].getAttribLocation(program, 'MAX');
+		this[BASE] = this[gl].getAttribLocation(program, 'BASE');
+		this[BEGIN] = this[gl].getAttribLocation(program, 'BEGIN');
 		this[X] = this[gl].getAttribLocation(program, 'X');
 		this[Y] = this[gl].getAttribLocation(program, 'Y');
 		this[COLOR] = this[gl].getUniformLocation(program, 'COLOR');
 		this[gl].bindBuffer(this[gl].ARRAY_BUFFER, this[gl].createBuffer());
+		this[gl].vertexAttribPointer(this[POSITION], 2, this[gl].FLOAT, false, 0, 0);
 		this[gl].enableVertexAttribArray(this[POSITION]);
 		if (self.ResizeObserver) {
 			new ResizeObserver(syncSize.bind(this)).observe(this[stage]);
@@ -597,7 +595,7 @@ const Chart = function () {
 				line = this[lines][c];
 			for (let j = line.first; j <= line.last; j++) {
 				let v = line.data[this.index[j]];
-				if (v > 0) {
+				if (v !== undefined) {
 					last = v;
 				}
 				data[i++] = j;
@@ -605,7 +603,6 @@ const Chart = function () {
 			}
 		}
 		this[gl].bufferData(this[gl].ARRAY_BUFFER, data, this[gl].STREAM_DRAW);
-		this[gl].vertexAttribPointer(this[POSITION], 2, this[gl].FLOAT, false, 0, 0);
 		calcLen.call(this);
 		let range = checkRange.call(this, this[begin], this[end]);
 		this[begin] = range[0];
