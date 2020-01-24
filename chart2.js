@@ -60,8 +60,8 @@ const Chart = function () {
 		this[rectColor] = [0, 0, 0];
 		this[textColor] = [0, 0, 0];
 		this[cursorTextColor] = [1, 0, 0];
-		this[begin] = this[oldbegin] = Infinity
-		this[end] = this[oldend] = -Infinity;
+		this[begin] = this[oldbegin] = -Infinity
+		this[end] = this[oldend] = Infinity;
 		this[queueActions] = [];
 		this[lines] = {};
 		this[mouseListener] = mousedown.bind(this);
@@ -199,14 +199,10 @@ const Chart = function () {
 				this[lines][c].sectionStarts = [];
 				this[lines][c].colors = [];
 				for (let i = 0; i < idx.length; i++) {
-					if (this[lines][c].data[idx[i]] > 0) {
+					if (this[lines][c].data[idx[i]] !== undefined) {
 						this[lines][c].sectionStarts.push(this.indexOrder[idx[i]]);
 						this[lines][c].colors.push(sections[c][idx[i]]);
 					}
-				}
-				if (this[lines][c].sectionStarts[0] !== this[lines][c].first) {
-					this[lines][c].sectionStarts.unshift(this[lines][c].first);
-					this[lines][c].colors.unshift(this[selectedColor]);
 				}
 				if (this[selected] === c) {
 					refresh = true;
@@ -215,6 +211,7 @@ const Chart = function () {
 		}
 		if (refresh) {
 			draw.call(this);
+			return true;
 		}
 	};
 
@@ -550,13 +547,21 @@ const Chart = function () {
 	}
 
 	function buildIndex() {
+		let sections = {};
 		this.indexOrder = {};
 		for (let c in this[lines]) {
-			for (let n in this[lines][c].data) {
-				if (this[lines][c].data[n] > 0) {
+			let line = this[lines][c];
+			for (let n in line.data) {
+				if (line.data[n] > 0) {
 					this.indexOrder[n] = 0;
 				} else {
 					delete this.indexOrder[n];
+				}
+			}
+			if (line.sectionStarts) {
+				sections[c] = {};
+				for (let i = 0; i < line.sectionStarts.length; i++) {
+					sections[c][this.index[line.sectionStarts[i]]] = line.colors[i];
 				}
 			}
 		}
@@ -611,7 +616,9 @@ const Chart = function () {
 		this[cursor] = checkCursor.call(this, this[cursor]);
 		this[oldbegin] = this[oldend] = undefined;
 		this[rangeChange] = this[cursorChange] = true;
-		draw.call(this);
+		if (!this.setSections(sections)) {
+			draw.call(this);
+		}
 	}
 
 	function checkRange(bg, ed) {
@@ -619,7 +626,7 @@ const Chart = function () {
 			bg = Math.max(0, Math.min(bg, this.index.length - this[minLen]));
 			return [bg, Math.max(bg + this[minLen] - 1, Math.min(ed, this.index.length - 1))];
 		} else {
-			return [Infinity, -Infinity];
+			return [-Infinity, Infinity];
 		}
 	}
 
@@ -785,8 +792,8 @@ const Chart = function () {
 						}
 					}
 				}
-				this[oldbegin] = Infinity;
-				this[oldend] = -Infinity;
+				this[oldbegin] = -Infinity;
+				this[oldend] = Infinity;
 				this[rangeChange] = false;
 			}
 			if (fireRangeChange || fireCursorChange) {
@@ -937,8 +944,9 @@ const Chart = function () {
 							break;
 						}
 					}
-				} else {
-					colors[0] = this[selectedColor];
+				}
+				if (colors.length < sectionStarts.length) {
+					colors.unshift(this[selectedColor]);
 				}
 				this[gl].vertexAttrib1f(this[BASE], line.base);
 				for (let i = 0; i < sectionStarts.length; i++) {
