@@ -9,8 +9,6 @@ const Chart = function () {
 		rectColor = Symbol('rectColor'),
 		textColor = Symbol('textColor'),
 		cursorTextColor = Symbol('cursorTextColor'),
-		rangeChange = Symbol('rangeChange'),
-		cursorChange = Symbol('cursorChange'),
 		paiting = Symbol('paiting'),
 		canvas2d = Symbol('canvas2d'),
 		canvas3d = Symbol('canvas3d'),
@@ -31,6 +29,7 @@ const Chart = function () {
 		fontSize = Symbol('fontSize'),
 		oldbegin = Symbol('oldbegin'),
 		oldend = Symbol('oldend'),
+		oldcursor = Symbol('oldcursor'),
 		stage = Symbol('stage'),
 		begin = Symbol('begin'),
 		end = Symbol('end'),
@@ -60,8 +59,6 @@ const Chart = function () {
 		this[rectColor] = [0, 0, 0];
 		this[textColor] = [0, 0, 0];
 		this[cursorTextColor] = [1, 0, 0];
-		this[begin] = this[oldbegin] = -Infinity
-		this[end] = this[oldend] = Infinity;
 		this[queueActions] = [];
 		this[lines] = {};
 		this[mouseListener] = mousedown.bind(this);
@@ -268,13 +265,8 @@ const Chart = function () {
 			i = this.index.length - 1 - this[end];
 		}
 		if (i) {
-			if (!this[paiting]) {
-				this[oldbegin] = this[begin];
-				this[oldend] = this[end];
-			}
 			this[begin] += i;
 			this[end] += i;
-			this[rangeChange] = true;
 			draw.call(this);
 			return true;
 		}
@@ -294,10 +286,6 @@ const Chart = function () {
 		}
 		if (newlen !== len) {
 			let l = (newlen - len) / 2;
-			if (!this[paiting]) {
-				this[oldbegin] = this[begin];
-				this[oldend] = this[end];
-			}
 			this[begin] -= Math.ceil(l);
 			this[end] += Math.floor(l);
 			if (this[begin] < 0) {
@@ -307,7 +295,6 @@ const Chart = function () {
 				this[begin] += this.index.length - 1 - this[end];
 				this[end] = this.index.length - 1;
 			}
-			this[rangeChange] = true;
 			draw.call(this);
 			return true;
 		}
@@ -614,8 +601,7 @@ const Chart = function () {
 		this[begin] = range[0];
 		this[end] = range[1];
 		this[cursor] = checkCursor.call(this, this[cursor]);
-		this[oldbegin] = this[oldend] = undefined;
-		this[rangeChange] = this[cursorChange] = true;
+		this[oldbegin] = this[oldend] = this[oldcursor] = undefined;
 		if (!this.setSections(sections)) {
 			draw.call(this);
 		}
@@ -633,13 +619,8 @@ const Chart = function () {
 	function changeRange(bg, ed) {
 		let range = checkRange.call(this, bg, ed);
 		if (range[0] !== this[begin] || range[1] !== this[end]) {
-			if (!this[paiting]) {
-				this[oldbegin] = this[begin];
-				this[oldend] = this[end];
-			}
 			this[begin] = range[0];
 			this[end] = range[1];
-			this[rangeChange] = true;
 			draw.call(this);
 			return true;
 		}
@@ -659,7 +640,6 @@ const Chart = function () {
 		cur = checkCursor.call(this, cur);
 		if (this[cursor] !== cur) {
 			this[cursor] = cur;
-			this[cursorChange] = true;
 			draw.call(this);
 			return true;
 		}
@@ -677,8 +657,8 @@ const Chart = function () {
 	}
 
 	function realDraw() {
-		let fireRangeChange = this[rangeChange],
-			fireCursorChange = this[cursorChange];
+		let fireRangeChange = this[begin] !== this[oldbegin] || this[end] !== this[oldend],
+			fireCursorChange = this[cursor] !== this[oldcursor];
 		this[ground].clearRect(0, 0, this[canvas2d].clientWidth, this[canvas2d].clientHeight);
 		this[ground].font = this[fontSize] + 'px monospace';
 		this[gl].clearColor(this[backgroundColor][0], this[backgroundColor][1], this[backgroundColor][2], 1);
@@ -792,9 +772,6 @@ const Chart = function () {
 						}
 					}
 				}
-				this[oldbegin] = -Infinity;
-				this[oldend] = Infinity;
-				this[rangeChange] = false;
 			}
 			if (fireRangeChange || fireCursorChange) {
 				this[max] = -Infinity;
@@ -823,7 +800,6 @@ const Chart = function () {
 						}
 					}
 				}
-				this[cursorChange] = false;
 			}
 			let w = this[canvas3d].clientWidth,
 				h = this[canvas3d].clientHeight,
@@ -1021,6 +997,9 @@ const Chart = function () {
 		this[gl].uniform4f(this[COLOR], this[rectColor][0], this[rectColor][1], this[rectColor][2], 1);
 		this[gl].drawArrays(this[gl].LINE_LOOP, 0, 4);
 		this[paiting] = 0;
+		this[oldbegin] = this[begin];
+		this[oldend] = this[end];
+		this[oldcursor] = this[cursor];
 		if (this.onpaitend) {
 			this.onpaitend({
 				type: 'paitend'
@@ -1089,22 +1068,22 @@ const Chart = function () {
 				this.moveCoordBy(Math.round(evt.deltaX));
 			}
 		} else if (absy > absx) {
-			this.zoomCoordBy(evt.deltaY, !evt.altKey);
+			this.zoomCoordBy(evt.deltaY, evt.altKey);
 		}
 	}
 
 	function keydown(evt) {
-		let result;
 		if (evt.keyCode == 37) {
-			result = evt.altKey ? this.moveCursorBy(-1) : this.moveCoordBy(1);
+			evt.altKey ? this.moveCursorBy(-1) : this.moveCoordBy(1);
+			evt.preventDefault();
 		} else if (evt.keyCode == 39) {
-			result = evt.altKey ? this.moveCursorBy(1) : this.moveCoordBy(-1);
+			evt.altKey ? this.moveCursorBy(1) : this.moveCoordBy(-1);
+			evt.preventDefault();
 		} else if (evt.keyCode == 38) {
-			result = this.zoomCoordBy(-1, evt.altKey);
+			this.zoomCoordBy(-1, evt.altKey);
+			evt.preventDefault();
 		} else if (evt.keyCode == 40) {
-			result = this.zoomCoordBy(1, evt.altKey);
-		}
-		if (result) {
+			this.zoomCoordBy(1, evt.altKey);
 			evt.preventDefault();
 		}
 	}
