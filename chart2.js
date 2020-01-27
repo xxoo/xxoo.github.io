@@ -18,7 +18,7 @@ const Chart = function () {
 		MAX = Symbol('MAX'),
 		COLOR = Symbol('COLOR'),
 		POSITION = Symbol('POSITION'),
-		BEGIN = Symbol('BEGIN'),
+		OFFSET = Symbol('OFFSET'),
 		WV = Symbol('WV'),
 		X = Symbol('X'),
 		Y = Symbol('Y'),
@@ -90,12 +90,12 @@ const Chart = function () {
 		attribute float WV;
 		attribute float HV;
 		attribute float MAX;
-		attribute float BEGIN;
+		attribute float OFFSET;
 		attribute float X;
 		attribute float Y;
 		void main(void) {
-			if (POSITION.y <= 0.0 || POSITION.y > 0.0) {
-				gl_Position = vec4((POSITION.x + BEGIN) * 2.0 / WV - 1.0, (POSITION.y - MAX) * 2.0 / HV + 1.0, 0.0, 1.0);
+			if (POSITION.y < 0.0 || POSITION.y >= 0.0) {
+				gl_Position = vec4((POSITION.x + OFFSET) * 2.0 / WV - 1.0, (POSITION.y - MAX) * 2.0 / HV + 1.0, 0.0, 1.0);
 			} else if (X != 0.0) {
 				gl_Position = vec4(X * 2.0 / WV - 1.0, POSITION.x, 0.0, 1.0);
 			} else if (Y != 0.0) {
@@ -124,7 +124,7 @@ const Chart = function () {
 		this[WV] = this[gl].getAttribLocation(program, 'WV');
 		this[HV] = this[gl].getAttribLocation(program, 'HV');
 		this[MAX] = this[gl].getAttribLocation(program, 'MAX');
-		this[BEGIN] = this[gl].getAttribLocation(program, 'BEGIN');
+		this[OFFSET] = this[gl].getAttribLocation(program, 'OFFSET');
 		this[X] = this[gl].getAttribLocation(program, 'X');
 		this[Y] = this[gl].getAttribLocation(program, 'Y');
 		this[COLOR] = this[gl].getUniformLocation(program, 'COLOR');
@@ -750,7 +750,7 @@ const Chart = function () {
 					selPos = pos;
 				} else if (line.offset < this[end] && line.data.length - 1 > this[begin] - line.offset) {
 					let bg = Math.max(this[begin] - line.offset, 0);
-					this[gl].vertexAttrib1f(this[BEGIN], line.offset - this[begin]);
+					this[gl].vertexAttrib1f(this[OFFSET], line.offset - this[begin]);
 					this[gl].drawArrays(this[gl].LINE_STRIP, pos + bg, Math.min(this[end] - line.offset + 1, line.data.length) - bg);
 				}
 				pos += line.data.length;
@@ -780,7 +780,7 @@ const Chart = function () {
 					colors.unshift(this[selectedColor]);
 				}
 				for (let i = 0; i < sectionStarts.length; i++) {
-					this[gl].vertexAttrib1f(this[BEGIN], line.offset - this[begin]);
+					this[gl].vertexAttrib1f(this[OFFSET], line.offset - this[begin]);
 					this[gl].uniform4f(this[COLOR], colors[i][0], colors[i][1], colors[i][2], 1);
 					this[gl].drawArrays(this[gl].LINE_STRIP, selPos + sectionStarts[i], (i === sectionStarts.length - 1 ? Math.min(this[end] - line.offset + 1, line.data.length) : sectionStarts[i + 1] + 1) - sectionStarts[i]);
 				}
