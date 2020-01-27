@@ -148,7 +148,7 @@ const Chart = function () {
 
 	Chart.prototype.add = function (data) {
 		for (let c in data) {
-			if (data[c].cursor > 0 && data[c].cursor < data[c].data.length) {
+			if (data[c].data.length > 1 && data[c].cursor >= 0 && data[c].cursor < data[c].data.length) {
 				this[lines][c] = {
 					data: [],
 					cursor: data[c].cursor,
