@@ -663,7 +663,6 @@ const Chart = function () {
 				hv = this[max] - this[min],
 				wu = w / wv,
 				hu = this[max] / hv,
-				n = Math.ceil(this[paddingX] * wv / w),
 				xys = [],
 				curs = [],
 				xtxts = [],
@@ -677,12 +676,12 @@ const Chart = function () {
 				text: this[end] - this[cursor]
 			});
 			if (this[cursor] >= this[begin] && this[cursor] <= this[end]) {
-				let n1 = Math.floor((this[end] - this[cursor]) / n),
+				let n1 = Math.floor((this[end] - this[cursor]) * wu / this[paddingX]),
 					n2 = (this[end] - this[cursor]) / n1;
 				for (let i = 1; i < n1; i++) {
 					pushx.call(this, this[cursor] + Math.round(i * n2));
 				}
-				n1 = Math.floor((this[cursor] - this[begin]) / n);
+				n1 = Math.floor((this[cursor] - this[begin]) * wu / this[paddingX]);
 				n2 = (this[cursor] - this[begin]) / n1;
 				for (let i = 1; i < n1; i++) {
 					pushx.call(this, this[cursor] - Math.round(i * n2));
@@ -696,7 +695,7 @@ const Chart = function () {
 					text: 0
 				});
 			} else {
-				let n1 = Math.floor((this[end] - this[begin]) / n),
+				let n1 = Math.floor(w / this[paddingX]),
 					n2 = (this[end] - this[begin]) / n1;
 				for (let i = 1; i < n1; i++) {
 					pushx.call(this, this[cursor] < this[begin] ? this[begin] + Math.round(i * n2) : this[end] - Math.round(i * n2));
