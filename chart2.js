@@ -234,10 +234,6 @@ const Chart = function () {
 		}
 	};
 
-	Chart.prototype.moveCursorBy = function (x) {
-		return changeCursor.call(this, this[cursor] + x);
-	};
-
 	Chart.prototype.moveCoordBy = function (i) {
 		if (this[begin] + i < 0) {
 			i = -this[begin];
@@ -900,11 +896,7 @@ const Chart = function () {
 			absy = Math.abs(evt.deltaY);
 		evt.preventDefault();
 		if (absx > absy) {
-			if (evt.altKey && !this.fixed) {
-				this.moveCursorBy(evt.deltaX);
-			} else {
-				this.moveCoordBy(Math.round(evt.deltaX));
-			}
+			this.moveCoordBy(Math.round(evt.deltaX));
 		} else if (absy > absx) {
 			this.zoomCoordBy(evt.deltaY, evt.altKey);
 		}
