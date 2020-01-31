@@ -220,8 +220,17 @@ const Chart = function () {
 	};
 
 	Chart.prototype.center = function () {
-		let len = Math.ceil((this[end] - this[begin]) / 2);
-		return this.setRange(this[cursor] - len, this[cursor] + len);
+		let len = Math.ceil((this[end] - this[begin]) / 2),
+			bg = this[cursor] - len,
+			ed = this[cursor] + len;
+		if (bg < 0) {
+			bg = 0;
+			ed = this[cursor] * 2;
+		} else if (ed >= this[length]) {
+			ed = this[length] - 1;
+			bg = this[cursor] * 2 - ed;
+		}
+		return this.setRange(bg, ed);
 	};
 
 	Chart.prototype.setRange = function (bg, ed) {
@@ -538,10 +547,10 @@ const Chart = function () {
 
 	function realDraw() {
 		let fireRangeChange = this[begin] !== this[oldbegin] || this[end] !== this[oldend];
-		this[ground].clearRect(0, 0, this[canvas2d].clientWidth, this[canvas2d].clientHeight);
-		this[ground].font = this[fontSize] + 'px monospace';
 		this[gl].clearColor(this[backgroundColor][0], this[backgroundColor][1], this[backgroundColor][2], 1);
 		this[gl].clear(this[gl].COLOR_BUFFER_BIT | this[gl].DEPTH_BUFFER_BIT | this[gl].STENCIL_BUFFER_BIT);
+		this[ground].clearRect(0, 0, this[canvas2d].clientWidth, this[canvas2d].clientHeight);
+		this[ground].font = this[fontSize] + 'px monospace';
 		if (this[length] > 1) {
 			if (fireRangeChange) {
 				for (let c in this[lines]) {
@@ -781,6 +790,10 @@ const Chart = function () {
 					this[gl].drawArrays(this[gl].LINE_STRIP, selPos + sectionStarts[i], (i === sectionStarts.length - 1 ? Math.min(this[end] - line.offset + 1, line.data.length) : sectionStarts[i + 1] + 1) - sectionStarts[i]);
 				}
 			}
+			this[gl].vertexAttrib1f(this[X], 0);
+			this[gl].vertexAttrib1f(this[Y], 0);
+			this[gl].uniform4f(this[COLOR], this[rectColor][0], this[rectColor][1], this[rectColor][2], 1);
+			this[gl].drawArrays(this[gl].LINE_LOOP, 0, 4);
 			drawText.call(this, xtxts, h + this[fontSize]);
 			drawText.call(this, ytxts);
 
@@ -843,10 +856,6 @@ const Chart = function () {
 				}
 			}
 		}
-		this[gl].vertexAttrib1f(this[X], 0);
-		this[gl].vertexAttrib1f(this[Y], 0);
-		this[gl].uniform4f(this[COLOR], this[rectColor][0], this[rectColor][1], this[rectColor][2], 1);
-		this[gl].drawArrays(this[gl].LINE_LOOP, 0, 4);
 		this[paiting] = 0;
 		this[oldbegin] = this[begin];
 		this[oldend] = this[end];

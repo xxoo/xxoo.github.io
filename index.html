@@ -28,6 +28,7 @@
 			top: 0;
 			width: 200px;
 			overflow: auto;
+			outline: none;
 		}
 		#list>a {
 			display: block;
@@ -37,58 +38,9 @@
 		}
 	</style>
 	<script type="text/javascript" src="chart2.js"></script>
-	<script type="text/javascript">
-		window.onload = function () {
-			window.chart = new Chart(document.getElementById('chart'));
-			document.getElementById('list').addEventListener('click', function(evt) {
-				if (evt.target.nodeName === 'A') {
-					if (chart.selected === evt.target.dataset.c) {
-						chart.selected = undefined;
-						evt.target.style.fontWeight = '';
-					} else {
-						let el = this.querySelector(`a[data-c="${chart.selected}"]`);
-						if (el) {
-							el.style.fontWeight = '';
-						}
-						evt.target.style.fontWeight = 'bold';
-						chart.selected = evt.target.dataset.c;
-					}
-				}
-			});
-			chart.sorting = function (a, b) {
-				return a - b;
-			};
-			chart.xLableing = function (x) {
-				return this.indexOrder[x] - this.indexOrder[this.cursor];
-			};
-			let a = {},
-				total = 10000;
-			for (let j = 0; j < 4000; j++) {
-				let len = (total * Math.random() + 1) | 0;
-				a[j] = {
-					data: [1000],
-					cursor: (len * Math.random()) | 0
-				};
-				for (let i = 1; i < len; i++) {
-					a[j].data.push(Math.min(Math.max((a[j].data[i - 1] * (0.9 + Math.random() / 5) + 1) | 0, 100),
-					10000));
-				}
-			}
-			chart.add(a);
-			//chart.selected = 1;
-			let s = '';
-			for (let n in a) {
-				s += `<a data-c="${n}"${this.selected === n ? ' style="font-weight:bold;"': ''}>line${n}: ${a[n].data[a[n].cursor]}</a>`;
-			}
-			document.getElementById('list').innerHTML = s;
-			//chart.cursor = chart.index[Math.round((chart.index.length - 1) / 2)];
-			/*document.body.firstChild.addEventListener('click', function () {
-				this.href = chart.copy().toDataURL();
-			});*/
-		};
-	</script>
+	<script type="text/javascript" src="index.js"></script>
 </head>
 
-<body><div id="chart"></div><div id="list"></div></body>
+<body><div id="chart"></div><div id="list" tabindex="0"></div></body>
 
 </html>
