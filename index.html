@@ -2,45 +2,75 @@
 <html>
 
 <head>
-	<meta charset="UTF-8" />
-	<meta name="viewport" content="user-scalable=no, width=device-width" />
-	<title>chart2</title>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+	<meta name="format-detection" content="telephone=no, email=no" />
+	<title>fusion framework</title>
 	<style>
-		html {
-			height: 100%;
-			background-color: #e0e0e0;
+		body.loading * {
+			display: none;
 		}
-		body {
-			margin: 0;
-			height: 100%;
-		}
-		#chart{
-			position: absolute;
-			left: 0;
-			right: 200px;
-			bottom: 0;
-			top: 0;
-		}
-		#list{
-			position: absolute;
-			right: 0;
-			bottom: 0;
-			top: 0;
-			width: 200px;
-			overflow: auto;
-			outline: none;
-		}
-		#list>a {
+		body.loading #loading,
+		body.loading #loading * {
 			display: block;
-			font-size: 12px;
-			line-height: 24px;
-			cursor: pointer;
 		}
 	</style>
-	<script type="text/javascript" src="chart2.js"></script>
-	<script type="text/javascript" src="index.js"></script>
+	<script>
+		var BUILD = 0,
+			MODULES = {},
+			RES_TO_CACHE = [];
+	</script>
 </head>
 
-<body><div id="chart"></div><div id="list" tabindex="0"></div></body>
+<body class="loading">
+	<div id="page"></div>
+	<div id="panel">
+		<div class="mask"></div>
+		<div class="contents">
+			<div>
+				<a class="close" href="javascript:;">✕</a>
+			</div>
+		</div>
+	</div>
+	<div id="popup">
+		<div>
+			<div></div>
+			<a class="close" href="javascript:;">✕</a>
+		</div>
+	</div>
+	<div id="photoview">
+		<div></div>
+		<a class="close" href="javascript:;">✕</a>
+		<a class="prev" href="javascript:;">‹</a>
+		<a class="next" href="javascript:;">›</a>
+		<a class="rotate p" href="javascript:;">⤺</a>
+		<a class="rotate n" href="javascript:;">⤺</a>
+	</div>
+	<div id="readable">
+		<div>
+			<div></div>
+			<a class="close" href="javascript:;">✕</a>
+		</div>
+	</div>
+	<div id="dialog">
+		<div>
+			<div>
+				<div></div>
+			</div>
+			<a class="close" href="javascript:;">✕</a>
+			<a class="yes" href="javascript:;"></a>
+			<a class="no" href="javascript:;"></a>
+		</div>
+	</div>
+	<div id="loading">
+		<div>
+			<div>Loading...</div>
+		</div>
+	</div>
+	<div id="hint">
+		<span></span>
+	</div>
+	<script src='/framework/all.js'></script>
+</body>
 
 </html>

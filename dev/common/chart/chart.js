@@ -1,5 +1,5 @@
 'use strict';
-const Chart = function () {
+define(function () {
 	const length = Symbol('length'),
 		selectedColor = Symbol('selectedColor'),
 		backgroundColor = Symbol('backgroundColor'),
@@ -47,7 +47,7 @@ const Chart = function () {
 		this[fontSize] = 10;
 		this[selectedColor] = [0, 0, 0];
 		this[backgroundColor] = [1, 1, 1];
-		this[lineColor] = [0.75, 0.75, 0.75];
+		this[lineColor] = [0.85, 0.85, 0.85];
 		this[cursorColor] = [1, 0.75, 0.75];
 		this[gridColor] = [0.75, 0.75, 1];
 		this[rectColor] = [0, 0, 0];
@@ -156,7 +156,10 @@ const Chart = function () {
 					tmin: Infinity
 				};
 				for (let i = 0; i < data[c].data.length; i++) {
-					this[lines][c].data[i] = (data[c].data[i] - data[c].data[data[c].cursor]) / (i < data[c].cursor ? data[c].data[i] :  data[c].data[data[c].cursor]);
+					this[lines][c].data[i] = (data[c].data[i] - data[c].data[data[c].cursor]) / (i < data[c].cursor ? data[c].data[i] : data[c].data[data[c].cursor]);
+					if (this[lines][c].data[i] > 1 || this[lines][c].data[i] < -1) {
+						this[lines][c].data[i] = Math.cbrt(this[lines][c].data[i]);
+					}
 					if (this[lines][c].tmax < this[lines][c].data[i]) {
 						this[lines][c].tmax = this[lines][c].data[i];
 						this[lines][c].tmaxi = i;
@@ -188,7 +191,7 @@ const Chart = function () {
 		}
 	};
 
-	Chart.prototype.setCursors = function(cursors) {
+	Chart.prototype.setCursors = function (cursors) {
 		let refresh;
 		for (let c in cursors) {
 			if (this[lines].hasOwnProperty(c) && cursors[c] !== this[lines][c].cursor && cursors[c] >= 0 && cursors[c] < this[lines][c].data.length) {
@@ -206,7 +209,7 @@ const Chart = function () {
 		let refresh;
 		for (let c in sections) {
 			if (this[lines].hasOwnProperty(c)) {
-				this[lines][c].sectionStarts = sections[c].starts;
+				this[lines][c].starts = sections[c].starts;
 				this[lines][c].colors = sections[c].colors;
 				if (this[selected] === c) {
 					refresh = true;
@@ -709,11 +712,11 @@ const Chart = function () {
 			}
 			ytxts.push({
 				v: this[fontSize] / 2,
-				text: Math.round(this[max] * 1000) / 10 + '%'
+				text: Math.round((this[max] > 1 || this[max] < -1 ? this[max] ** 3 : this[max]) * 1000) / 10 + '%'
 			});
 			ytxts.push({
 				v: h + this[fontSize] / 2,
-				text: Math.round(this[min] * 1000) / 10 + '%'
+				text: Math.round((this[min] > 1 || this[min] < -1 ? this[min] ** 3 : this[max]) * 1000) / 10 + '%'
 			});
 			if (this[max] >= 0 && this[min] <= 0) {
 				let m = Math.floor(hu * h / this[paddingY]);
@@ -740,7 +743,7 @@ const Chart = function () {
 			} else {
 				let m = Math.floor(h / this[paddingY]);
 				for (let i = 1; i < m; i++) {
-					pushy.call(this, 1 - i / m, this[max] * i / m);
+					pushy.call(this, 1 - i / m, this[min] + (this[max] - this[min]) * i / m);
 				}
 			}
 			let selPos,
@@ -768,26 +771,26 @@ const Chart = function () {
 				let line = this[lines][this[selected]],
 					bg = Math.max(this[begin] - line.offset, 0),
 					colors = [],
-					sectionStarts = [bg];
-				if (line.sectionStarts) {
-					for (let i = 0; i < line.sectionStarts.length; i++) {
-						if (line.sectionStarts[i] <= bg) {
+					starts = [bg];
+				if (line.starts) {
+					for (let i = 0; i < line.starts.length; i++) {
+						if (line.starts[i] <= bg) {
 							colors[0] = line.colors[i];
-						} else if (line.sectionStarts[i] < this[end] - line.offset) {
-							sectionStarts.push(line.sectionStarts[i]);
+						} else if (line.starts[i] < this[end] - line.offset) {
+							starts.push(line.starts[i]);
 							colors.push(line.colors[i]);
 						} else {
 							break;
 						}
 					}
 				}
-				if (colors.length < sectionStarts.length) {
+				if (colors.length < starts.length) {
 					colors.unshift(this[selectedColor]);
 				}
-				for (let i = 0; i < sectionStarts.length; i++) {
+				for (let i = 0; i < starts.length; i++) {
 					this[gl].vertexAttrib1f(this[OFFSET], line.offset - this[begin]);
 					this[gl].uniform4f(this[COLOR], colors[i][0], colors[i][1], colors[i][2], 1);
-					this[gl].drawArrays(this[gl].LINE_STRIP, selPos + sectionStarts[i], (i === sectionStarts.length - 1 ? Math.min(this[end] - line.offset + 1, line.data.length) : sectionStarts[i + 1] + 1) - sectionStarts[i]);
+					this[gl].drawArrays(this[gl].LINE_STRIP, selPos + starts[i], (i === starts.length - 1 ? Math.min(this[end] - line.offset + 1, line.data.length) : starts[i + 1] + 1) - starts[i]);
 				}
 			}
 			this[gl].vertexAttrib1f(this[X], 0);
@@ -814,7 +817,7 @@ const Chart = function () {
 				});
 				ytxts.push({
 					v: y * h + this[fontSize] / 2,
-					text: Math.round(v * 1000) / 10 + '%'
+					text: Math.round((v > 1 || v < -1 ? v ** 3 : v) * 1000) / 10 + '%'
 				});
 			}
 
@@ -878,11 +881,11 @@ const Chart = function () {
 	function mousedown(evt) {
 		let fireX,
 			mousemove = function (evt) {
-			let x = (fireX - evt.offsetX) % (this[canvas3d].clientWidth / (this[end] - this[begin]));
-			if (this.moveCoordBy(Math.round((fireX - evt.offsetX - x) * (this[end] - this[begin]) / this[canvas3d].clientWidth))) {
-				fireX = evt.offsetX - x;
-			}
-		}.bind(this),
+				let x = (fireX - evt.offsetX) % (this[canvas3d].clientWidth / (this[end] - this[begin]));
+				if (this.moveCoordBy(Math.round((fireX - evt.offsetX - x) * (this[end] - this[begin]) / this[canvas3d].clientWidth))) {
+					fireX = evt.offsetX - x;
+				}
+			}.bind(this),
 			mouseup = function (evt) {
 				if (evt.button === 0) {
 					this[canvas3d].style.cursor = '';
@@ -926,4 +929,4 @@ const Chart = function () {
 			evt.preventDefault();
 		}
 	}
-}();
+});
