@@ -1,0 +1,1 @@
+"use strict";define(["common/kernel/kernel"],function(e){e.init("home")});
