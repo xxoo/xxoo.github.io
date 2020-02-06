@@ -927,8 +927,8 @@ define(function () {
 					moveCursor.call(this, evt.offsetX);
 				} else {
 					let w = getWidth.call(this),
-						x = (fireX - evt.offsetX) % (w / (this[end] - this[begin] + 1));
-					if (this.moveCoordBy(Math.round((fireX - evt.offsetX - x) * (this[end] - this[begin] + 1) / w))) {
+						x = (fireX - evt.offsetX) % (w / (this[end] - this[begin]));
+					if (this.moveCoordBy(Math.round((fireX - evt.offsetX - x) * (this[end] - this[begin]) / w))) {
 						fireX = evt.offsetX - x;
 					}
 				}
@@ -947,7 +947,7 @@ define(function () {
 				this[canvas3d].ownerDocument.addEventListener('mouseup', mouseup);
 			},
 			moveCursor = function(x) {
-				this.cursor = this[begin] + Math.round(x * (this[end] - this[begin] + 1) / getWidth.call(this));
+				this.cursor = this[begin] + Math.round(x * (this[end] - this[begin]) / getWidth.call(this));
 			};
 		btn = evt.button;
 		if (btn === 0) {
