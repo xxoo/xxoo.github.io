@@ -85,6 +85,9 @@ define(['module', 'common/kernel/kernel', 'common/chart/chart'], function (modul
 											}
 										}
 									}
+									if (json.Result.length > 2) {
+										cache.put('/data', new Response(JSON.stringify(data)));
+									}
 									//json.Result = null;
 									return data;
 								});
@@ -111,34 +114,32 @@ define(['module', 'common/kernel/kernel', 'common/chart/chart'], function (modul
 									}
 									data.days.push(json.Result[i][0]);
 								}
+								cache.put('/data', new Response(JSON.stringify(data)));
 								//json.Result = null;
 								return data;
 							});
 						}
-					}).then(function(data) {
-						cache.put('/data', new Response(JSON.stringify(data)));
-						return data;
 					});
 				});
 			})]).then(function(jsons) {
-				let cursors = jsons[0].Result,
+				let cross = jsons[0].Result,
 					data = jsons[1],
 					lines = {},
 					sections = {},
 					misc = {},
-					colors = {
-						0: [0.25, 0.75, 0.25],
-						1: [0.25, 0.25, 0.25],
-						2: [0.75, 0.25, 0.25]
-					};
-				for (let n in cursors) {
+					colors = [
+						[0.25, 0.75, 0.25],
+						[0.25, 0.25, 0.25],
+						[0.75, 0.25, 0.25]
+					];
+				for (let n in cross) {
 					if (data.base[n]) {
-						let j = data.days.indexOf(cursors[n][0]);
+						let j = data.days.indexOf(cross[n][0]);
 						if (j >= 0) {
 							misc[n] = [];
 							lines[n] = {
 								data: [],
-								cursor: j - data.base[n][1]
+								cross: j - data.base[n][1]
 							};
 							sections[n] = {
 								starts: [],
@@ -154,7 +155,6 @@ define(['module', 'common/kernel/kernel', 'common/chart/chart'], function (modul
 								lines[n].data.push(data.base[n][i][0] * data.base[n][i][1]);
 							}
 						}
-						
 					}
 					data.base[n] = data.base[n][0];
 				}
