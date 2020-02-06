@@ -1,14 +1,17 @@
 'use strict';
 define(function () {
-	const length = Symbol('length'),
+	const labeling = Symbol('labeling'),
+		cursor = Symbol('cursor'),
+		width = Symbol('width'),
+		height = Symbol('height'),
+		length = Symbol('length'),
+		cursorColor = Symbol('cursorColor'),
 		selectedColor = Symbol('selectedColor'),
 		backgroundColor = Symbol('backgroundColor'),
 		lineColor = Symbol('lineColor'),
-		cursorColor = Symbol('cursorColor'),
 		gridColor = Symbol('gridColor'),
 		rectColor = Symbol('rectColor'),
 		textColor = Symbol('textColor'),
-		cursorTextColor = Symbol('cursorTextColor'),
 		paiting = Symbol('paiting'),
 		canvas2d = Symbol('canvas2d'),
 		canvas3d = Symbol('canvas3d'),
@@ -31,7 +34,7 @@ define(function () {
 		stage = Symbol('stage'),
 		begin = Symbol('begin'),
 		end = Symbol('end'),
-		cursor = Symbol('cursor'),
+		cross = Symbol('cross'),
 		selected = Symbol('selected'),
 		max = Symbol('max'),
 		min = Symbol('min'),
@@ -40,19 +43,17 @@ define(function () {
 		mouseListener = Symbol('mouseListener');
 
 	function Chart(ctn) {
-		this.fixed = false;
 		this[paddingY] = 40;
 		this[paddingX] = 60;
 		this[paddingLeft] = 50;
 		this[fontSize] = 10;
+		this[cursorColor] = [1, 0, 0];
 		this[selectedColor] = [0, 0, 0];
 		this[backgroundColor] = [1, 1, 1];
-		this[lineColor] = [0.85, 0.85, 0.85];
-		this[cursorColor] = [1, 0.75, 0.75];
+		this[lineColor] = [0.8, 0.8, 0.8];
 		this[gridColor] = [0.75, 0.75, 1];
 		this[rectColor] = [0, 0, 0];
 		this[textColor] = [0, 0, 0];
-		this[cursorTextColor] = [1, 0, 0];
 		this[lines] = {};
 		this[mouseListener] = mousedown.bind(this);
 		this[stage] = ctn.appendChild(document.createElement('div'));
@@ -148,15 +149,15 @@ define(function () {
 
 	Chart.prototype.add = function (data) {
 		for (let c in data) {
-			if (data[c].data.length > 1 && data[c].cursor >= 0 && data[c].cursor < data[c].data.length) {
+			if (data[c].data.length > 1 && data[c].cross >= 0 && data[c].cross < data[c].data.length) {
 				this[lines][c] = {
 					data: [],
-					cursor: data[c].cursor,
+					cross: data[c].cross,
 					tmax: -Infinity,
 					tmin: Infinity
 				};
 				for (let i = 0; i < data[c].data.length; i++) {
-					this[lines][c].data[i] = (data[c].data[i] - data[c].data[data[c].cursor]) / (i < data[c].cursor ? data[c].data[i] : data[c].data[data[c].cursor]);
+					this[lines][c].data[i] = (data[c].data[i] - data[c].data[data[c].cross]) / (i < data[c].cross ? data[c].data[i] : data[c].data[data[c].cross]);
 					if (this[lines][c].data[i] > 1 || this[lines][c].data[i] < -1) {
 						this[lines][c].data[i] = Math.cbrt(this[lines][c].data[i]);
 					}
@@ -184,22 +185,8 @@ define(function () {
 		}
 		if (refresh) {
 			if (this[selected] && !this[lines].hasOwnProperty(this[selected])) {
-				this[selected] = undefined;
+				this[selected] = this[cursor] = undefined;
 			}
-			buildIndex.call(this);
-			return true;
-		}
-	};
-
-	Chart.prototype.setCursors = function (cursors) {
-		let refresh;
-		for (let c in cursors) {
-			if (this[lines].hasOwnProperty(c) && cursors[c] !== this[lines][c].cursor && cursors[c] >= 0 && cursors[c] < this[lines][c].data.length) {
-				this[lines][c].cursor = cursors[c];
-				refresh = true;
-			}
-		}
-		if (refresh) {
 			buildIndex.call(this);
 			return true;
 		}
@@ -224,14 +211,14 @@ define(function () {
 
 	Chart.prototype.center = function () {
 		let len = Math.ceil((this[end] - this[begin]) / 2),
-			bg = this[cursor] - len,
-			ed = this[cursor] + len;
+			bg = this[cross] - len,
+			ed = this[cross] + len;
 		if (bg < 0) {
 			bg = 0;
-			ed = this[cursor] * 2;
+			ed = this[cross] * 2;
 		} else if (ed >= this[length]) {
 			ed = this[length] - 1;
-			bg = this[cursor] * 2 - ed;
+			bg = this[cross] * 2 - ed;
 		}
 		return this.setRange(bg, ed);
 	};
@@ -273,9 +260,15 @@ define(function () {
 			newlen = this[length] - 1;
 		}
 		if (newlen !== len) {
-			let l = (newlen - len) / 2;
-			this[begin] -= Math.ceil(l);
-			this[end] += Math.floor(l);
+			if (this[cursor] === undefined || this[cursor] < this[begin] || this[cursor] > this[end]) {
+				let l = (newlen - len) / 2;
+				this[begin] -= Math.ceil(l);
+				this[end] += Math.floor(l);
+			} else {
+				let l = newlen - len;
+				this[begin] += Math.round(l * (this[begin] - this[cursor]) / (this[end] - this[begin]));
+				this[end] += Math.round(l * (this[end] - this[cursor]) / (this[end] - this[begin]));
+			}
 			if (this[begin] < 0) {
 				this[end] -= this[begin];
 				this[begin] = 0;
@@ -299,184 +292,214 @@ define(function () {
 		return canvas;
 	};
 
-	Object.defineProperty(Chart.prototype, 'length', {
-		get: function () {
-			return this[length];
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'cursor', {
-		get: function () {
-			return this[cursor];
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'begin', {
-		get: function () {
-			return this[begin];
-		},
-		set: function (newbegin) {
-			this.setRange(newbegin, this[end]);
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'end', {
-		get: function () {
-			return this[end];
-		},
-		set: function (newend) {
-			this.setRange(this[begin], newend);
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'selected', {
-		get: function () {
-			return this[selected];
-		},
-		set: function (c) {
-			c = String(c);
-			if (!this[lines].hasOwnProperty(c)) {
-				this[selected] = undefined;
-			} else if (this[selected] !== c) {
-				this[selected] = c;
-			} else {
-				return;
+	Object.defineProperties(Chart.prototype, {
+		length: {
+			get: function () {
+				return this[length];
 			}
-			draw.call(this);
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'paddingY', {
-		get: function () {
-			return this[paddingY];
 		},
-		set: function (y) {
-			this[paddingY] = y;
-			draw.call(this);
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'paddingX', {
-		get: function () {
-			return this[paddingX];
+		cross: {
+			get: function () {
+				return this[cross];
+			}
 		},
-		set: function (x) {
-			this[paddingX] = x;
-			syncSize.call(this);
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'paddingLeft', {
-		get: function () {
-			return this[paddingLeft];
+		labeling: {
+			get: function() {
+				return this[labeling];
+			},
+			set: function(func) {
+				this[labeling] = func;
+				if (this[cursor] !== undefined && (this[cursor] >= this[begin] && this[cursor] <= this[end])) {
+					draw.call(this);
+				}
+			}
 		},
-		set: function (x) {
-			this[paddingLeft] = x;
-			this[canvas3d].style.left = x + 'px';
-			syncSize.call(this);
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'fontSize', {
-		get: function () {
-			return this[fontSize];
+		cursor: {
+			get: function() {
+				return this[cursor];
+			},
+			set: function(cur) {
+				if (this[selected]) {
+					cur = Number(cur);
+					if (Number.isNaN(cur)) {
+						cur = undefined;
+					} else if (cur < this[lines][this[selected]].offset) {
+						cur = this[lines][this[selected]].offset;
+					} else if (cur >= this[lines][this[selected]].offset + this[lines][this[selected]].data.length) {
+						cur = this[lines][this[selected]].offset + this[lines][this[selected]].data.length - 1;
+					}
+					if (this[cursor] !== cur) {
+						this[cursor] = cur;
+						draw.call(this);
+					}
+				}
+			}
 		},
-		set: function (x) {
-			this[fontSize] = x;
-			this[canvas3d].style.top = x / 2 + 'px';
-			syncSize.call(this);
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'selectedColor', {
-		get: function () {
-			return this[selectedColor];
+		begin: {
+			get: function () {
+				return this[begin];
+			},
+			set: function (newbegin) {
+				this.setRange(newbegin, this[end]);
+			}
 		},
-		set: function (c) {
-			this[selectedColor] = c;
-			draw.call(this);
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'backgroundColor', {
-		get: function () {
-			return this[backgroundColor];
+		end: {
+			get: function () {
+				return this[end];
+			},
+			set: function (newend) {
+				this.setRange(this[begin], newend);
+			}
 		},
-		set: function (c) {
-			this[backgroundColor] = c;
-			draw.call(this);
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'lineColor', {
-		get: function () {
-			return this[lineColor];
+		selected: {
+			get: function () {
+				return this[selected];
+			},
+			set: function (c) {
+				c = String(c);
+				if (!this[lines].hasOwnProperty(c)) {
+					this[selected] = undefined;
+				} else if (this[selected] !== c) {
+					this[selected] = c;
+				} else {
+					return;
+				}
+				if (this[cursor] !== undefined) {
+					if (this[selected]) {
+						if (this[cursor] < this[lines][this[selected]].offset) {
+							this[cursor] = this[lines][this[selected]].offset;
+						} else if (this[cursor] >= this[lines][this[selected]].offset + this[lines][this[selected]].data.length) {
+							this[cursor] = this[lines][this[selected]].offset + this[lines][this[selected]].data.length - 1;
+						}
+					} else {
+						this[cursor] = undefined;
+					}
+				}
+				draw.call(this);
+			}
 		},
-		set: function (c) {
-			this[lineColor] = c;
-			draw.call(this);
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'cursorColor', {
-		get: function () {
-			return this[cursorColor];
+		paddingX: {
+			get: function () {
+				return this[paddingX];
+			},
+			set: function (x) {
+				this[paddingX] = x;
+				syncSize.call(this);
+			}
 		},
-		set: function (c) {
-			this[cursorColor] = c;
-			draw.call(this);
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'gridColor', {
-		get: function () {
-			return this[gridColor];
+		paddingY: {
+			get: function () {
+				return this[paddingY];
+			},
+			set: function (y) {
+				this[paddingY] = y;
+				draw.call(this);
+			}
 		},
-		set: function (c) {
-			this[gridColor] = c;
-			draw.call(this);
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'rectColor', {
-		get: function () {
-			return this[rectColor];
+		paddingLeft: {
+			get: function () {
+				return this[paddingLeft];
+			},
+			set: function (x) {
+				this[paddingLeft] = x;
+				this[canvas3d].style.left = x + 'px';
+				syncSize.call(this);
+			}
 		},
-		set: function (c) {
-			this[rectColor] = c;
-			draw.call(this);
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'textColor', {
-		get: function () {
-			return this[textColor];
+		fontSize: {
+			get: function () {
+				return this[fontSize];
+			},
+			set: function (x) {
+				this[fontSize] = x;
+				this[canvas3d].style.top = x / 2 + 'px';
+				syncSize.call(this);
+			}
 		},
-		set: function (c) {
-			this[textColor] = c;
-			draw.call(this);
-		}
-	});
-
-	Object.defineProperty(Chart.prototype, 'cursorTextColor', {
-		get: function () {
-			return this[cursorTextColor];
+		selectedColor: {
+			get: function () {
+				return this[selectedColor];
+			},
+			set: function (c) {
+				this[selectedColor] = c;
+				draw.call(this);
+			}
 		},
-		set: function (c) {
-			this[cursorTextColor] = c;
-			draw.call(this);
+		backgroundColor: {
+			get: function () {
+				return this[backgroundColor];
+			},
+			set: function (c) {
+				this[backgroundColor] = c;
+				draw.call(this);
+			}
+		},
+		lineColor: {
+			get: function () {
+				return this[lineColor];
+			},
+			set: function (c) {
+				this[lineColor] = c;
+				draw.call(this);
+			}
+		},
+		cursorColor: {
+			get: function () {
+				return this[cursorColor];
+			},
+			set: function (c) {
+				this[cursorColor] = c;
+				if (this[cursor] !== undefined && ((this[cursor] >= this[begin] && this[cursor] <= this[end]) || (this[lines][this[selected]].data[i] >= this[min] && this[lines][this[selected]].data[i] <= this[max]))) {
+					draw.call(this);
+				}
+			}
+		},
+		gridColor: {
+			get: function () {
+				return this[gridColor];
+			},
+			set: function (c) {
+				this[gridColor] = c;
+				draw.call(this);
+			}
+		},
+		rectColor: {
+			get: function () {
+				return this[rectColor];
+			},
+			set: function (c) {
+				this[rectColor] = c;
+				draw.call(this);
+			}
+		},
+		textColor: {
+			get: function () {
+				return this[textColor];
+			},
+			set: function (c) {
+				this[textColor] = c;
+				draw.call(this);
+			}
 		}
 	});
 
 	return Chart;
 
+	function getWidth() {
+		return this[width] - this[paddingLeft] - this[paddingX] / 2;
+	}
+
+	function getHeight() {
+		return this[height] - this[fontSize] * 2;
+	}
+
 	function syncSize() {
-		let w = this[stage].clientWidth,
-			h = this[stage].clientHeight,
-			wg = w - this[paddingLeft] - this[paddingX] / 2,
-			hg = h - this[fontSize] * 2;
-		this[canvas2d].width = w * devicePixelRatio;
-		this[canvas2d].height = h * devicePixelRatio;
+		this[width] = this[stage].clientWidth;
+		this[height] = this[stage].clientHeight;
+		let wg = getWidth.call(this),
+			hg = getHeight.call(this);
+		this[canvas2d].width = this[width] * devicePixelRatio;
+		this[canvas2d].height = this[height] * devicePixelRatio;
 		this[canvas3d].width = wg * devicePixelRatio;
 		this[canvas3d].height = hg * devicePixelRatio;
 		this[canvas3d].style.width = wg + 'px';
@@ -490,24 +513,29 @@ define(function () {
 	}
 
 	function calcLen() {
-		this[minLen] = Math.min(Math.floor(this[canvas3d].clientWidth / this[paddingX]), this[length] - 1);
+		this[minLen] = Math.min(Math.floor(getWidth.call(this) / this[paddingX]), this[length] - 1);
 	}
 
 	function buildIndex() {
-		let i = this[length] = this[cursor] = 0;
+		let i = this[length] = this[cross] = 0;
 		for (let c in this[lines]) {
-			if (this[cursor] < this[lines][c].cursor) {
-				this[cursor] = this[lines][c].cursor;
+			if (this[cross] < this[lines][c].cross) {
+				this[cross] = this[lines][c].cross;
 			}
 			i += this[lines][c].data.length;
 		}
 		for (let c in this[lines]) {
-			this[lines][c].offset = this[cursor] - this[lines][c].cursor;
+			this[lines][c].offset = this[cross] - this[lines][c].cross;
 			let l = this[lines][c].offset + this[lines][c].data.length;
 			if (this[length] < l) {
 				this[length] = l;
 			}
 		}
+		calcLen.call(this);
+		let range = checkRange.call(this, this[begin], this[end]);
+		this[begin] = range[0];
+		this[end] = range[1];
+		this[oldbegin] = this[oldend] = undefined;
 		//first 8 numbers are for other use
 		let data = new Float32Array(i * 2 + 8);
 		data.set([-1, NaN, 1, NaN, 2, NaN, 3, NaN]);
@@ -520,11 +548,6 @@ define(function () {
 			}
 		}
 		this[gl].bufferData(this[gl].ARRAY_BUFFER, data, this[gl].STATIC_DRAW);
-		calcLen.call(this);
-		let range = checkRange.call(this, this[begin], this[end]);
-		this[begin] = range[0];
-		this[end] = range[1];
-		this[oldbegin] = this[oldend] = undefined;
 		draw.call(this);
 	}
 
@@ -552,7 +575,7 @@ define(function () {
 		let fireRangeChange = this[begin] !== this[oldbegin] || this[end] !== this[oldend];
 		this[gl].clearColor(this[backgroundColor][0], this[backgroundColor][1], this[backgroundColor][2], 1);
 		this[gl].clear(this[gl].COLOR_BUFFER_BIT | this[gl].DEPTH_BUFFER_BIT | this[gl].STENCIL_BUFFER_BIT);
-		this[ground].clearRect(0, 0, this[canvas2d].clientWidth, this[canvas2d].clientHeight);
+		this[ground].clearRect(0, 0, this[width], this[height]);
 		this[ground].font = this[fontSize] + 'px monospace';
 		if (this[length] > 1) {
 			if (fireRangeChange) {
@@ -665,8 +688,8 @@ define(function () {
 					}
 				}
 			}
-			let w = this[canvas3d].clientWidth,
-				h = this[canvas3d].clientHeight,
+			let w = getWidth.call(this),
+				h = getHeight.call(this),
 				wv = this[end] - this[begin],
 				hv = this[max] - this[min],
 				wu = w / wv,
@@ -678,25 +701,25 @@ define(function () {
 				ytxts = [];
 			xtxts.push({
 				v: this[paddingLeft],
-				text: this[begin] - this[cursor]
+				text: this[begin] - this[cross]
 			});
 			xtxts.push({
 				v: w + this[paddingLeft],
-				text: this[end] - this[cursor]
+				text: this[end] - this[cross]
 			});
-			if (this[cursor] >= this[begin] && this[cursor] <= this[end]) {
-				let n1 = Math.floor((this[end] - this[cursor]) / n),
-					n2 = (this[end] - this[cursor]) / n1;
+			if (this[cross] >= this[begin] && this[cross] <= this[end]) {
+				let n1 = Math.floor((this[end] - this[cross]) / n),
+					n2 = (this[end] - this[cross]) / n1;
 				for (let i = 1; i < n1; i++) {
-					pushx.call(this, this[cursor] + Math.round(i * n2));
+					pushx.call(this, this[cross] + Math.round(i * n2));
 				}
-				n1 = Math.floor((this[cursor] - this[begin]) / n);
-				n2 = (this[cursor] - this[begin]) / n1;
+				n1 = Math.floor((this[cross] - this[begin]) / n);
+				n2 = (this[cross] - this[begin]) / n1;
 				for (let i = 1; i < n1; i++) {
-					pushx.call(this, this[cursor] - Math.round(i * n2));
+					pushx.call(this, this[cross] - Math.round(i * n2));
 				}
-				let x = this[cursor] - this[begin];
-				curs.push({
+				let x = this[cross] - this[begin];
+				xys.push({
 					x: x
 				});
 				xtxts.push({
@@ -704,10 +727,10 @@ define(function () {
 					text: 0
 				});
 			} else {
-				let n1 = Math.floor(w / this[paddingX]),
+				let n1 = Math.floor((this[end] - this[begin]) / n),
 					n2 = (this[end] - this[begin]) / n1;
 				for (let i = 1; i < n1; i++) {
-					pushx.call(this, this[cursor] < this[begin] ? this[begin] + Math.round(i * n2) : this[end] - Math.round(i * n2));
+					pushx.call(this, this[cross] < this[begin] ? this[begin] + Math.round(i * n2) : this[end] - Math.round(i * n2));
 				}
 			}
 			ytxts.push({
@@ -716,7 +739,7 @@ define(function () {
 			});
 			ytxts.push({
 				v: h + this[fontSize] / 2,
-				text: Math.round((this[min] > 1 || this[min] < -1 ? this[min] ** 3 : this[max]) * 1000) / 10 + '%'
+				text: Math.round((this[min] > 1 || this[min] < -1 ? this[min] ** 3 : this[min]) * 1000) / 10 + '%'
 			});
 			if (this[max] >= 0 && this[min] <= 0) {
 				let m = Math.floor(hu * h / this[paddingY]);
@@ -727,12 +750,8 @@ define(function () {
 				for (let i = 1; i < m; i++) {
 					pushy.call(this, hu + (1 - hu) * i / m, this[min] * i / m);
 				}
-				if (this[max] === 0) {
-					ytxts.push(ytxts.shift());
-				} else if (this[min] === 0) {
-					ytxts.push(ytxts.splice(1, 1)[0]);
-				} else {
-					curs.push({
+				if (this[max] !== 0 && this[min] !== 0) {
+					xys.push({
 						y: hu
 					});
 					ytxts.push({
@@ -744,6 +763,29 @@ define(function () {
 				let m = Math.floor(h / this[paddingY]);
 				for (let i = 1; i < m; i++) {
 					pushy.call(this, 1 - i / m, this[min] + (this[max] - this[min]) * i / m);
+				}
+			}
+			if (this[cursor] !== undefined) {
+				let i = this[cursor] - this[lines][this[selected]].offset;
+				if (this[cursor] >= this[begin] && this[cursor] <= this[end]) {
+					let x = this[cursor] - this[begin];
+					curs.push({
+						x: x
+					});
+					xtxts.push({
+						v: x * wu + this[paddingLeft],
+						text: this[labeling] ? this[labeling](i) : this[cursor] - this[cross]
+					});
+				}
+				if (this[lines][this[selected]].data[i] >= this[min] && this[lines][this[selected]].data[i] <= this[max]) {
+					let y = (this[max] - this[lines][this[selected]].data[i]) / hv;
+					curs.push({
+						y: y
+					});
+					ytxts.push({
+						v: y * h + this[fontSize] / 2,
+						text: this[labeling] ? this[labeling](i, true) : Math.round((this[lines][this[selected]].data[i] > 1 || this[lines][this[selected]].data[i] < -1 ? this[lines][this[selected]].data[i] ** 3 : this[lines][this[selected]].data[i]) * 1000) / 10 + '%'
+					});
 				}
 			}
 			let selPos,
@@ -807,7 +849,7 @@ define(function () {
 				});
 				xtxts.push({
 					v: x * wu + this[paddingLeft],
-					text: i - this[cursor]
+					text: i - this[cross]
 				});
 			}
 
@@ -841,8 +883,8 @@ define(function () {
 					this[ground].textBaseline = 'middle';
 					this[ground].fillStyle = translateColor(this[textColor]);
 					for (let i = 0; i < pos.length; i++) {
-						if (i === pos.length - 1 && this[max] >= 0 && this[min] <= 0) {
-							this[ground].fillStyle = translateColor(this[cursorTextColor]);
+						if (i === pos.length - 1 && this[cursor] !== undefined && this[lines][this[selected]].data[i] >= this[min] && this[lines][this[selected]].data[i] <= this[max]) {
+							this[ground].fillStyle = translateColor(this[cursorColor]);
 						}
 						this[ground].fillText(pos[i].text, x, pos[i].v);
 					}
@@ -851,8 +893,8 @@ define(function () {
 					this[ground].textBaseline = 'top';
 					this[ground].fillStyle = translateColor(this[textColor]);
 					for (let i = 0; i < pos.length; i++) {
-						if (i === pos.length - 1 && this[cursor] >= this[begin] && this[cursor] <= this[end]) {
-							this[ground].fillStyle = translateColor(this[cursorTextColor]);
+						if (i === pos.length - 1 && this[cursor] !== undefined && this[cursor] >= this[begin] && this[cursor] <= this[end]) {
+							this[ground].fillStyle = translateColor(this[cursorColor]);
 						}
 						this[ground].fillText(pos[i].text, pos[i].v, y);
 					}
@@ -879,27 +921,43 @@ define(function () {
 	}
 
 	function mousedown(evt) {
-		let fireX,
+		let fireX, btn,
 			mousemove = function (evt) {
-				let x = (fireX - evt.offsetX) % (this[canvas3d].clientWidth / (this[end] - this[begin]));
-				if (this.moveCoordBy(Math.round((fireX - evt.offsetX - x) * (this[end] - this[begin]) / this[canvas3d].clientWidth))) {
-					fireX = evt.offsetX - x;
+				if (btn === 2) {
+					moveCursor.call(this, evt.offsetX);
+				} else {
+					let w = getWidth.call(this),
+						x = (fireX - evt.offsetX) % (w / (this[end] - this[begin] + 1));
+					if (this.moveCoordBy(Math.round((fireX - evt.offsetX - x) * (this[end] - this[begin] + 1) / w))) {
+						fireX = evt.offsetX - x;
+					}
 				}
 			}.bind(this),
 			mouseup = function (evt) {
-				if (evt.button === 0) {
+				if (evt.button === btn) {
 					this[canvas3d].style.cursor = '';
 					this[canvas3d].removeEventListener('mousemove', mousemove);
 					this[canvas3d].ownerDocument.removeEventListener('mouseup', mouseup);
 					this[canvas3d].addEventListener('mousedown', this[mouseListener]);
 				}
-			}.bind(this);
-		if (evt.button === 0) {
+			}.bind(this),
+			start = function() {
+				this[canvas3d].removeEventListener('mousedown', this[mouseListener]);
+				this[canvas3d].addEventListener('mousemove', mousemove);
+				this[canvas3d].ownerDocument.addEventListener('mouseup', mouseup);
+			},
+			moveCursor = function(x) {
+				this.cursor = this[begin] + Math.round(x * (this[end] - this[begin] + 1) / getWidth.call(this));
+			};
+		btn = evt.button;
+		if (btn === 0) {
 			fireX = evt.offsetX;
 			this[canvas3d].style.cursor = 'move';
-			this[canvas3d].removeEventListener('mousedown', this[mouseListener]);
-			this[canvas3d].addEventListener('mousemove', mousemove);
-			this[canvas3d].ownerDocument.addEventListener('mouseup', mouseup);
+			start.call(this);
+		} else if (btn === 2 && this[selected]) {
+			this[canvas3d].style.cursor = 'crosshair';
+			start.call(this);
+			moveCursor.call(this, evt.offsetX);
 		}
 	}
 
@@ -916,10 +974,26 @@ define(function () {
 
 	function keydown(evt) {
 		if (evt.keyCode == 37) {
-			this.moveCoordBy(1);
+			if (evt.altKey) {
+				if (this[cursor] === undefined) {
+					this.cursor = this[cross];
+				} else {
+					this.cursor -= 1;
+				}
+			} else {
+				this.moveCoordBy(1);
+			}
 			evt.preventDefault();
 		} else if (evt.keyCode == 39) {
-			this.moveCoordBy(-1);
+			if (evt.altKey) {
+				if (this[cursor] === undefined) {
+					this.cursor = this[cross];
+				} else {
+					this.cursor += 1;
+				}
+			} else {
+				this.moveCoordBy(-1);
+			}
 			evt.preventDefault();
 		} else if (evt.keyCode == 38) {
 			this.zoomCoordBy(-1, evt.altKey);
