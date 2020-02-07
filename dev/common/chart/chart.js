@@ -184,7 +184,7 @@ define(function () {
 			}
 		}
 		if (refresh) {
-			if (this[selected] && !this[lines].hasOwnProperty(this[selected])) {
+			if (this[selected] !== undefined && !this[lines].hasOwnProperty(this[selected])) {
 				this[selected] = undefined;
 			}
 			buildIndex.call(this);
@@ -543,7 +543,9 @@ define(function () {
 	}
 
 	function checkCursor(cur) {
-		if (this[selected]) {
+		if (this[selected] === undefined) {
+			return this[cross];
+		} else {
 			cur = Number(cur);
 			if (Number.isNaN(cur)) {
 				cur = this[cross];
@@ -553,8 +555,6 @@ define(function () {
 				cur = this[lines][this[selected]].offset + this[lines][this[selected]].data.length - 1;
 			}
 			return cur;
-		} else {
-			return this[cross];
 		}
 	}
 
@@ -763,7 +763,29 @@ define(function () {
 					pushy.call(this, 1 - i / m, this[min] + (this[max] - this[min]) * i / m);
 				}
 			}
-			if (this[selected]) {
+			if (this[selected] === undefined) {
+				if (this[cursor] >= this[begin] && this[cursor] <= this[end]) {
+					let x = this[cursor] - this[begin];
+					curs.push({
+						x: x
+					});
+					xtxts.push({
+						v: x * wu + this[paddingLeft],
+						text: 0,
+						cur: true
+					});
+				}
+				if (this[max] >= 0 && this[min] <= 0) {
+					curs.push({
+						y: hu
+					});
+					ytxts.push({
+						v: hu * h + this[fontSize] / 2,
+						text: '0%',
+						cur: true
+					});
+				}
+			} else {
 				let i = this[cursor] - this[lines][this[selected]].offset;
 				if (this[cursor] >= this[begin] && this[cursor] <= this[end]) {
 					let x = this[cursor] - this[begin];
@@ -784,28 +806,6 @@ define(function () {
 					ytxts.push({
 						v: y * h + this[fontSize] / 2,
 						text: this[labeling] ? this[labeling](i, true) : Math.round((this[lines][this[selected]].data[i] > 1 || this[lines][this[selected]].data[i] < -1 ? this[lines][this[selected]].data[i] ** 3 : this[lines][this[selected]].data[i]) * 1000) / 10 + '%',
-						cur: true
-					});
-				}
-			} else {
-				if (this[cross] >= this[begin] && this[cross] <= this[end]) {
-					let x = this[cross] - this[begin];
-					curs.push({
-						x: x
-					});
-					xtxts.push({
-						v: x * wu + this[paddingLeft],
-						text: 0,
-						cur: true
-					});
-				}
-				if (this[max] >= 0 && this[min] <= 0) {
-					curs.push({
-						y: hu
-					});
-					ytxts.push({
-						v: hu * h + this[fontSize] / 2,
-						text: '0%',
 						cur: true
 					});
 				}
@@ -831,7 +831,7 @@ define(function () {
 			drawxy.call(this, xys);
 			this[gl].uniform4f(this[COLOR], this[cursorColor][0], this[cursorColor][1], this[cursorColor][2], 1);
 			drawxy.call(this, curs);
-			if (this[selected] && this[lines][this[selected]].offset < this[end] && this[lines][this[selected]].data.length - 1 > this[begin] - this[lines][this[selected]].offset) {
+			if (this[selected] !== undefined && this[lines][this[selected]].offset < this[end] && this[lines][this[selected]].data.length - 1 > this[begin] - this[lines][this[selected]].offset) {
 				let line = this[lines][this[selected]],
 					bg = Math.max(this[begin] - line.offset, 0),
 					colors = [],
@@ -976,7 +976,7 @@ define(function () {
 			fireX = evt.offsetX;
 			this[canvas3d].style.cursor = 'move';
 			start.call(this);
-		} else if (btn === 2 && this[selected]) {
+		} else if (btn === 2 && this[selected] !== undefined) {
 			this[canvas3d].style.cursor = 'crosshair';
 			start.call(this);
 			moveCursor.call(this, evt.offsetX);
