@@ -71,6 +71,7 @@ define(function () {
 		this[canvas3d].style.left = this[paddingLeft] + 'px';
 		this[canvas3d].style.top = this[fontSize] / 2 + 'px';
 		this[canvas3d].style.outline = 'none';
+		this[canvas3d].style.cursor = 'grab';
 		this[canvas3d].tabIndex = 0;
 		this[canvas3d].addEventListener('keydown', keydown.bind(this));
 		this[canvas3d].addEventListener('mousedown', this[mouseListener]);
@@ -953,7 +954,7 @@ define(function () {
 			}.bind(this),
 			mouseup = function (evt) {
 				if (evt.button === btn) {
-					this[canvas3d].style.cursor = '';
+					this[canvas3d].style.cursor = 'grab';
 					this[canvas3d].removeEventListener('mousemove', mousemove);
 					this[canvas3d].ownerDocument.removeEventListener('mouseup', mouseup);
 					this[canvas3d].addEventListener('mousedown', this[mouseListener]);
@@ -970,7 +971,7 @@ define(function () {
 		btn = evt.button;
 		if (btn === 0) {
 			fireX = evt.offsetX;
-			this[canvas3d].style.cursor = 'ew-resize';
+			this[canvas3d].style.cursor = 'grabbing';
 			start.call(this);
 		} else if (btn === 2 && this[selected] !== undefined) {
 			this[canvas3d].style.cursor = 'crosshair';
