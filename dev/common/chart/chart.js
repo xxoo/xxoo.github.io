@@ -184,8 +184,8 @@ define(function () {
 			}
 		}
 		if (refresh) {
-			if (this[selected] && !this[lines].hasOwnProperty(this[selected])) {
-				this[selected] = this[cursor] = undefined;
+			if (this[selected] !== undefined && !this[lines].hasOwnProperty(this[selected])) {
+				this[selected] = undefined;
 			}
 			buildIndex.call(this);
 			return true;
@@ -260,7 +260,7 @@ define(function () {
 			newlen = this[length] - 1;
 		}
 		if (newlen !== len) {
-			if (this[cursor] === undefined || this[cursor] < this[begin] || this[cursor] > this[end]) {
+			if (this[cursor] < this[begin] || this[cursor] > this[end]) {
 				let l = (newlen - len) / 2;
 				this[begin] -= Math.ceil(l);
 				this[end] += Math.floor(l);
@@ -309,7 +309,7 @@ define(function () {
 			},
 			set: function(func) {
 				this[labeling] = func;
-				if (this[cursor] !== undefined && (this[cursor] >= this[begin] && this[cursor] <= this[end])) {
+				if (this[cursor] >= this[begin] && this[cursor] <= this[end]) {
 					draw.call(this);
 				}
 			}
@@ -319,19 +319,10 @@ define(function () {
 				return this[cursor];
 			},
 			set: function(cur) {
-				if (this[selected]) {
-					cur = Number(cur);
-					if (Number.isNaN(cur)) {
-						cur = undefined;
-					} else if (cur < this[lines][this[selected]].offset) {
-						cur = this[lines][this[selected]].offset;
-					} else if (cur >= this[lines][this[selected]].offset + this[lines][this[selected]].data.length) {
-						cur = this[lines][this[selected]].offset + this[lines][this[selected]].data.length - 1;
-					}
-					if (this[cursor] !== cur) {
-						this[cursor] = cur;
-						draw.call(this);
-					}
+				cur = checkCursor.call(this, cur);
+				if (this[cursor] !== cur) {
+					this[cursor] = cur;
+					draw.call(this);
 				}
 			}
 		},
@@ -364,17 +355,7 @@ define(function () {
 				} else {
 					return;
 				}
-				if (this[cursor] !== undefined) {
-					if (this[selected]) {
-						if (this[cursor] < this[lines][this[selected]].offset) {
-							this[cursor] = this[lines][this[selected]].offset;
-						} else if (this[cursor] >= this[lines][this[selected]].offset + this[lines][this[selected]].data.length) {
-							this[cursor] = this[lines][this[selected]].offset + this[lines][this[selected]].data.length - 1;
-						}
-					} else {
-						this[cursor] = undefined;
-					}
-				}
+				this[cursor] = checkCursor.call(this, this[cursor]);
 				draw.call(this);
 			}
 		},
@@ -449,7 +430,7 @@ define(function () {
 			},
 			set: function (c) {
 				this[cursorColor] = c;
-				if (this[cursor] !== undefined && ((this[cursor] >= this[begin] && this[cursor] <= this[end]) || (this[lines][this[selected]].data[i] >= this[min] && this[lines][this[selected]].data[i] <= this[max]))) {
+				if ((this[cursor] >= this[begin] && this[cursor] <= this[end]) || (this[lines][this[selected]].data[i] >= this[min] && this[lines][this[selected]].data[i] <= this[max])) {
 					draw.call(this);
 				}
 			}
@@ -536,6 +517,7 @@ define(function () {
 		this[begin] = range[0];
 		this[end] = range[1];
 		this[oldbegin] = this[oldend] = undefined;
+		this[cursor] = checkCursor.call(this, this[cursor]);
 		//first 8 numbers are for other use
 		let data = new Float32Array(i * 2 + 8);
 		data.set([-1, NaN, 1, NaN, 2, NaN, 3, NaN]);
@@ -557,6 +539,22 @@ define(function () {
 			return [bg, Math.max(bg + this[minLen] - 1, Math.min(ed, this[length] - 1))];
 		} else {
 			return [-Infinity, Infinity];
+		}
+	}
+
+	function checkCursor(cur) {
+		if (this[selected] === undefined) {
+			return this[cross];
+		} else {
+			cur = Number(cur);
+			if (Number.isNaN(cur)) {
+				cur = this[cross];
+			} else if (cur < this[lines][this[selected]].offset) {
+				cur = this[lines][this[selected]].offset;
+			} else if (cur >= this[lines][this[selected]].offset + this[lines][this[selected]].data.length) {
+				cur = this[lines][this[selected]].offset + this[lines][this[selected]].data.length - 1;
+			}
+			return cur;
 		}
 	}
 
@@ -765,7 +763,29 @@ define(function () {
 					pushy.call(this, 1 - i / m, this[min] + (this[max] - this[min]) * i / m);
 				}
 			}
-			if (this[cursor] !== undefined) {
+			if (this[selected] === undefined) {
+				if (this[cursor] >= this[begin] && this[cursor] <= this[end]) {
+					let x = this[cursor] - this[begin];
+					curs.push({
+						x: x
+					});
+					xtxts.push({
+						v: x * wu + this[paddingLeft],
+						text: 0,
+						cur: true
+					});
+				}
+				if (this[max] >= 0 && this[min] <= 0) {
+					curs.push({
+						y: hu
+					});
+					ytxts.push({
+						v: hu * h + this[fontSize] / 2,
+						text: '0%',
+						cur: true
+					});
+				}
+			} else {
 				let i = this[cursor] - this[lines][this[selected]].offset;
 				if (this[cursor] >= this[begin] && this[cursor] <= this[end]) {
 					let x = this[cursor] - this[begin];
@@ -774,7 +794,8 @@ define(function () {
 					});
 					xtxts.push({
 						v: x * wu + this[paddingLeft],
-						text: this[labeling] ? this[labeling](i) : this[cursor] - this[cross]
+						text: this[labeling] ? this[labeling](i) : this[cursor] - this[cross],
+						cur: true
 					});
 				}
 				if (this[lines][this[selected]].data[i] >= this[min] && this[lines][this[selected]].data[i] <= this[max]) {
@@ -784,7 +805,8 @@ define(function () {
 					});
 					ytxts.push({
 						v: y * h + this[fontSize] / 2,
-						text: this[labeling] ? this[labeling](i, true) : Math.round((this[lines][this[selected]].data[i] > 1 || this[lines][this[selected]].data[i] < -1 ? this[lines][this[selected]].data[i] ** 3 : this[lines][this[selected]].data[i]) * 1000) / 10 + '%'
+						text: this[labeling] ? this[labeling](i, true) : Math.round((this[lines][this[selected]].data[i] > 1 || this[lines][this[selected]].data[i] < -1 ? this[lines][this[selected]].data[i] ** 3 : this[lines][this[selected]].data[i]) * 1000) / 10 + '%',
+						cur: true
 					});
 				}
 			}
@@ -809,7 +831,7 @@ define(function () {
 			drawxy.call(this, xys);
 			this[gl].uniform4f(this[COLOR], this[cursorColor][0], this[cursorColor][1], this[cursorColor][2], 1);
 			drawxy.call(this, curs);
-			if (this[selected] && this[lines][this[selected]].offset < this[end] && this[lines][this[selected]].data.length - 1 > this[begin] - this[lines][this[selected]].offset) {
+			if (this[selected] !== undefined && this[lines][this[selected]].offset < this[end] && this[lines][this[selected]].data.length - 1 > this[begin] - this[lines][this[selected]].offset) {
 				let line = this[lines][this[selected]],
 					bg = Math.max(this[begin] - line.offset, 0),
 					colors = [],
@@ -883,7 +905,7 @@ define(function () {
 					this[ground].textBaseline = 'middle';
 					this[ground].fillStyle = translateColor(this[textColor]);
 					for (let i = 0; i < pos.length; i++) {
-						if (i === pos.length - 1 && this[cursor] !== undefined && this[lines][this[selected]].data[i] >= this[min] && this[lines][this[selected]].data[i] <= this[max]) {
+						if (pos[i].cur) {
 							this[ground].fillStyle = translateColor(this[cursorColor]);
 						}
 						this[ground].fillText(pos[i].text, x, pos[i].v);
@@ -893,7 +915,7 @@ define(function () {
 					this[ground].textBaseline = 'top';
 					this[ground].fillStyle = translateColor(this[textColor]);
 					for (let i = 0; i < pos.length; i++) {
-						if (i === pos.length - 1 && this[cursor] !== undefined && this[cursor] >= this[begin] && this[cursor] <= this[end]) {
+						if (pos[i].cur) {
 							this[ground].fillStyle = translateColor(this[cursorColor]);
 						}
 						this[ground].fillText(pos[i].text, pos[i].v, y);
@@ -954,7 +976,7 @@ define(function () {
 			fireX = evt.offsetX;
 			this[canvas3d].style.cursor = 'move';
 			start.call(this);
-		} else if (btn === 2 && this[selected]) {
+		} else if (btn === 2 && this[selected] !== undefined) {
 			this[canvas3d].style.cursor = 'crosshair';
 			start.call(this);
 			moveCursor.call(this, evt.offsetX);
@@ -975,22 +997,14 @@ define(function () {
 	function keydown(evt) {
 		if (evt.keyCode == 37) {
 			if (evt.altKey) {
-				if (this[cursor] === undefined) {
-					this.cursor = this[cross];
-				} else {
-					this.cursor -= 1;
-				}
+				this.cursor -= 1;
 			} else {
 				this.moveCoordBy(1);
 			}
 			evt.preventDefault();
 		} else if (evt.keyCode == 39) {
 			if (evt.altKey) {
-				if (this[cursor] === undefined) {
-					this.cursor = this[cross];
-				} else {
-					this.cursor += 1;
-				}
+				this.cursor += 1;
 			} else {
 				this.moveCoordBy(-1);
 			}
