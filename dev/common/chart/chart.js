@@ -695,16 +695,20 @@ define(function () {
 				n = Math.ceil(this[paddingX] / wu),
 				xys = [],
 				curs = [],
-				xtxts = [],
-				ytxts = [];
-			xtxts.push({
-				v: this[paddingLeft],
-				text: this[begin] - this[cross]
-			});
-			xtxts.push({
-				v: w + this[paddingLeft],
-				text: this[end] - this[cross]
-			});
+				xtxts = [{
+					v: this[paddingLeft],
+					text: this[begin] - this[cross]
+				}, {
+					v: w + this[paddingLeft],
+					text: this[end] - this[cross]
+				}],
+				ytxts = [{
+					v: this[fontSize] / 2,
+					text: Math.round((this[max] > 1 || this[max] < -1 ? this[max] ** 3 : this[max]) * 1000) / 10 + '%'
+				}, {
+					v: h + this[fontSize] / 2,
+					text: Math.round((this[min] > 1 || this[min] < -1 ? this[min] ** 3 : this[min]) * 1000) / 10 + '%'
+				}];
 			if (this[cross] >= this[begin] && this[cross] <= this[end]) {
 				let n1 = Math.floor((this[end] - this[cross]) / n),
 					n2 = (this[end] - this[cross]) / n1;
@@ -716,14 +720,16 @@ define(function () {
 				for (let i = 1; i < n1; i++) {
 					pushx.call(this, this[cross] - Math.round(i * n2));
 				}
-				let x = this[cross] - this[begin];
-				xys.push({
-					x: x
-				});
-				xtxts.push({
-					v: x * wu + this[paddingLeft],
-					text: 0
-				});
+				if (this[cross] !== this[begin] && this[cross] !== this[end]) {
+					let x = this[cross] - this[begin];
+					xys.push({
+						x: x
+					});
+					xtxts.push({
+						v: x * wu + this[paddingLeft],
+						text: 0
+					});
+				}
 			} else {
 				let n1 = Math.floor((this[end] - this[begin]) / n),
 					n2 = (this[end] - this[begin]) / n1;
@@ -731,14 +737,6 @@ define(function () {
 					pushx.call(this, this[cross] < this[begin] ? this[begin] + Math.round(i * n2) : this[end] - Math.round(i * n2));
 				}
 			}
-			ytxts.push({
-				v: this[fontSize] / 2,
-				text: Math.round((this[max] > 1 || this[max] < -1 ? this[max] ** 3 : this[max]) * 1000) / 10 + '%'
-			});
-			ytxts.push({
-				v: h + this[fontSize] / 2,
-				text: Math.round((this[min] > 1 || this[min] < -1 ? this[min] ** 3 : this[min]) * 1000) / 10 + '%'
-			});
 			if (this[max] >= 0 && this[min] <= 0) {
 				let m = Math.floor(hu * h / this[paddingY]);
 				for (let i = 1; i < m; i++) {
@@ -775,16 +773,14 @@ define(function () {
 						cur: true
 					});
 				}
-				if (this[max] >= 0 && this[min] <= 0) {
-					curs.push({
-						y: hu
-					});
-					ytxts.push({
-						v: hu * h + this[fontSize] / 2,
-						text: '0%',
-						cur: true
-					});
-				}
+				curs.push({
+					y: hu
+				});
+				ytxts.push({
+					v: hu * h + this[fontSize] / 2,
+					text: '0%',
+					cur: true
+				});
 			} else {
 				let i = this[cursor] - this[lines][this[selected]].offset;
 				if (this[cursor] >= this[begin] && this[cursor] <= this[end]) {
@@ -974,7 +970,7 @@ define(function () {
 		btn = evt.button;
 		if (btn === 0) {
 			fireX = evt.offsetX;
-			this[canvas3d].style.cursor = 'move';
+			this[canvas3d].style.cursor = 'ew-resize';
 			start.call(this);
 		} else if (btn === 2 && this[selected] !== undefined) {
 			this[canvas3d].style.cursor = 'crosshair';
