@@ -3,10 +3,12 @@ define(function () {
 	const colorful = Symbol('colorful'),
 		labeling = Symbol('labeling'),
 		cursor = Symbol('cursor'),
+		oldcursor = Symbol('oldcursor'),
 		width = Symbol('width'),
 		height = Symbol('height'),
 		length = Symbol('length'),
 		cursorColor = Symbol('cursorColor'),
+		cursorBackgroundColor = Symbol('cursorBackgroundColor'),
 		selectedColor = Symbol('selectedColor'),
 		backgroundColor = Symbol('backgroundColor'),
 		outlineColor = Symbol('outlineColor'),
@@ -51,6 +53,7 @@ define(function () {
 		this[paddingLeft] = 50;
 		this[fontSize] = 8;
 		this[cursorColor] = [1, 0, 0, 1];
+		this[cursorBackgroundColor] = [0.75, 0.75, 0.75, 1];
 		this[selectedColor] = [0, 0, 0, 1];
 		this[backgroundColor] = [1, 1, 1, 1];
 		this[outlineColor] = [0, 0, 0, 0.0625];
@@ -76,7 +79,7 @@ define(function () {
 		this[canvas3d] = this[stage].appendChild(document.createElement('canvas'));
 		this[canvas3d].style.position = 'absolute';
 		this[canvas3d].style.left = this[paddingLeft] + 'px';
-		this[canvas3d].style.top = this[fontSize] / 2 + 'px';
+		this[canvas3d].style.top = this[fontSize] + 'px';
 		this[canvas3d].style.outline = 'none';
 		this[canvas3d].tabIndex = 0;
 		if (!noResponse) {
@@ -450,7 +453,7 @@ define(function () {
 			},
 			set: function (x) {
 				this[fontSize] = x;
-				this[canvas3d].style.top = x / 2 + 'px';
+				this[canvas3d].style.top = x + 'px';
 				sizeChange.call(this);
 			}
 		},
@@ -540,7 +543,7 @@ define(function () {
 	}
 
 	function getHeight() {
-		return this[height] - this[fontSize] * 2;
+		return this[height] - this[fontSize] * 3;
 	}
 
 	function sizeChange() {
@@ -608,7 +611,7 @@ define(function () {
 		let range = checkRange.call(this, this[begin], this[end]);
 		this[begin] = range[0];
 		this[end] = range[1];
-		this[oldbegin] = this[oldend] = undefined;
+		this[oldbegin] = this[oldend] = this[oldcursor] = undefined;
 		//first 8 numbers are for other use
 		let data = new Float32Array(i * 2 + 8);
 		data.set([-1, NaN, 1, NaN, 2, NaN, 3, NaN]);
@@ -665,7 +668,6 @@ define(function () {
 		this[gl].clearColor(this[backgroundColor][0], this[backgroundColor][1], this[backgroundColor][2], 1);
 		this[gl].clear(this[gl].COLOR_BUFFER_BIT | this[gl].DEPTH_BUFFER_BIT | this[gl].STENCIL_BUFFER_BIT);
 		this[ground].clearRect(0, 0, this[width], this[height]);
-		this[ground].font = this[fontSize] + 'px monospace';
 		if (this[length] > 1) {
 			if (fireRangeChange) {
 				for (let c in this[lines]) {
@@ -787,17 +789,17 @@ define(function () {
 				xys = [],
 				curs = [],
 				xtxts = [{
-					v: this[paddingLeft],
+					v: 0,
 					text: Number.isNaN(this[cross]) ? this[labeling] ? this[labeling](this[begin]) : this[begin] : this[begin] - this[cross]
 				}, {
-					v: w + this[paddingLeft],
+					v: w,
 					text: Number.isNaN(this[cross]) ? this[labeling] ? this[labeling](this[end]) : this[end] : this[end] - this[cross]
 				}],
 				ytxts = [{
-					v: this[fontSize] / 2,
+					v: 0,
 					text: Number.isNaN(this[cross]) ? this[labeling] ? this[labeling](this[max], true) : this[max] : Math.round((this[max] > 1 || this[max] < -1 ? this[max] ** 3 : this[max]) * 1000) / 10 + '%'
 				}, {
-					v: h + this[fontSize] / 2,
+					v: h,
 					text: Number.isNaN(this[cross]) ?  this[labeling] ? this[labeling](this[min], true) : this[min] : Math.round((this[min] > 1 || this[min] < -1 ? this[min] ** 3 : this[min]) * 1000) / 10 + '%'
 				}];
 			if (this[cross] >= this[begin] && this[cross] <= this[end]) {
@@ -817,7 +819,7 @@ define(function () {
 						x: x
 					});
 					xtxts.push({
-						v: x * wu + this[paddingLeft],
+						v: x * wu,
 						text: 0
 					});
 				}
@@ -847,7 +849,7 @@ define(function () {
 						y: hu
 					});
 					ytxts.push({
-						v: hu * h + this[fontSize] / 2,
+						v: hu * h,
 						text: '0%'
 					});
 				}
@@ -860,7 +862,7 @@ define(function () {
 							x: x
 						});
 						xtxts.push({
-							v: x * wu + this[paddingLeft],
+							v: x * wu,
 							text: 0,
 							cur: true
 						});
@@ -869,7 +871,7 @@ define(function () {
 						y: hu
 					});
 					ytxts.push({
-						v: hu * h + this[fontSize] / 2,
+						v: hu * h,
 						text: '0%',
 						cur: true
 					});
@@ -881,7 +883,7 @@ define(function () {
 							x: x
 						});
 						xtxts.push({
-							v: x * wu + this[paddingLeft],
+							v: x * wu,
 							text: Number.isNaN(this[cross]) ? this[labeling] ? this[labeling](this[cursor]) : this[cursor] : this[labeling] ? this[labeling](i) : this[cursor] - this[cross],
 							cur: true
 						});
@@ -892,7 +894,7 @@ define(function () {
 							y: y
 						});
 						ytxts.push({
-							v: y * h + this[fontSize] / 2,
+							v: y * h,
 							text: Number.isNaN(this[cross]) ? this[labeling] ? this[labeling](this[lines][this[selected]].data[i], true) : this[lines][this[selected]].data[i] : this[labeling] ? this[labeling](i, true) : Math.round((this[lines][this[selected]].data[i] > 1 || this[lines][this[selected]].data[i] < -1 ? this[lines][this[selected]].data[i] ** 3 : this[lines][this[selected]].data[i]) * 1000) / 10 + '%',
 							cur: true
 						});
@@ -940,7 +942,7 @@ define(function () {
 				this[gl].vertexAttrib1f(this[OUTLINE], 0);
 				drawColorfulLine.call(this, line, selPos);
 			}
-			drawText.call(this, xtxts, h + this[fontSize]);
+			drawText.call(this, xtxts, true);
 			drawText.call(this, ytxts);
 
 			function drawColorfulLine(line, p) {
@@ -975,7 +977,7 @@ define(function () {
 					x: x
 				});
 				xtxts.push({
-					v: x * wu + this[paddingLeft],
+					v: x * wu,
 					text: Number.isNaN(this[cross]) ? this[labeling] ? this[labeling](i) : i : i - this[cross]
 				});
 			}
@@ -985,7 +987,7 @@ define(function () {
 					y: y
 				});
 				ytxts.push({
-					v: y * h + this[fontSize] / 2,
+					v: y * h,
 					text: Number.isNaN(this[cross]) ? this[labeling] ? this[labeling](v, true) : Math.round(v * 100) / 100 : Math.round((v > 1 || v < -1 ? v ** 3 : v) * 1000) / 10 + '%'
 				});
 			}
@@ -1003,27 +1005,35 @@ define(function () {
 				}
 			}
 
-			function drawText(pos, y) {
-				if (y === undefined) {
+			function drawText(pos, isx) {
+				this[ground].font = this[fontSize] + 'px monospace';
+				if (isx) {
+					let y = h + this[fontSize] * 1.5;
+					this[ground].textAlign = 'center';
+					this[ground].textBaseline = 'top';
+					this[ground].fillStyle = translateColor(this[textColor]);
+					for (let i = 0; i < pos.length; i++) {
+						if (pos[i].cur) {
+							this[ground].fillStyle = translateColor(this[cursorBackgroundColor]);
+							this[ground].fillRect(pos[i].v + this[paddingLeft] - this[paddingX] / 2, y - this[fontSize] / 2, this[paddingX], this[fontSize] * 2);
+							this[ground].font = 'bold ' + this[fontSize] + 'px monospace';
+							this[ground].fillStyle = translateColor(this[cursorColor]);
+						}
+						this[ground].fillText(pos[i].text, pos[i].v + this[paddingLeft], y, this[paddingLeft] - this[fontSize]);
+					}
+				} else {
 					let x = this[paddingLeft] - this[fontSize] / 2;
 					this[ground].textAlign = 'right';
 					this[ground].textBaseline = 'middle';
 					this[ground].fillStyle = translateColor(this[textColor]);
 					for (let i = 0; i < pos.length; i++) {
 						if (pos[i].cur) {
+							this[ground].fillStyle = translateColor(this[cursorBackgroundColor]);
+							this[ground].fillRect(0, pos[i].v, this[paddingLeft], this[fontSize] * 2);
+							this[ground].font = 'bold ' + this[fontSize] + 'px monospace';
 							this[ground].fillStyle = translateColor(this[cursorColor]);
 						}
-						this[ground].fillText(pos[i].text, x, pos[i].v);
-					}
-				} else {
-					this[ground].textAlign = 'center';
-					this[ground].textBaseline = 'top';
-					this[ground].fillStyle = translateColor(this[textColor]);
-					for (let i = 0; i < pos.length; i++) {
-						if (pos[i].cur) {
-							this[ground].fillStyle = translateColor(this[cursorColor]);
-						}
-						this[ground].fillText(pos[i].text, pos[i].v, y);
+						this[ground].fillText(pos[i].text, x, pos[i].v + this[fontSize], this[paddingX] - this[fontSize]);
 					}
 				}
 			}
@@ -1044,6 +1054,14 @@ define(function () {
 			this.onrangechange({
 				type: 'rangechange'
 			});
+		}
+		if (this[cursor] !== this[oldcursor] && (!Number.isNaN(this[cursor]) || !Number.isNaN(this[oldcursor]))) {
+			this[oldcursor] = this[cursor];
+			if (this.oncursorchange) {
+				this.oncursorchange({
+					type: 'cursorchange'
+				});
+			}
 		}
 	}
 
