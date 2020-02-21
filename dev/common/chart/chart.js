@@ -8,7 +8,7 @@ define(function () {
 		height = Symbol('height'),
 		length = Symbol('length'),
 		cursorColor = Symbol('cursorColor'),
-		cursorBackgroundColor = Symbol('cursorBackgroundColor'),
+		cursorTextColor = Symbol('cursorTextColor'),
 		selectedColor = Symbol('selectedColor'),
 		backgroundColor = Symbol('backgroundColor'),
 		outlineColor = Symbol('outlineColor'),
@@ -53,7 +53,7 @@ define(function () {
 		this[paddingLeft] = 50;
 		this[fontSize] = 8;
 		this[cursorColor] = [1, 0, 0, 1];
-		this[cursorBackgroundColor] = [0.75, 0.75, 0.75, 1];
+		this[cursorTextColor] = [1, 1, 1, 1];
 		this[selectedColor] = [0, 0, 0, 1];
 		this[backgroundColor] = [1, 1, 1, 1];
 		this[outlineColor] = [0, 0, 0, 0.0625];
@@ -1014,10 +1014,10 @@ define(function () {
 					this[ground].fillStyle = translateColor(this[textColor]);
 					for (let i = 0; i < pos.length; i++) {
 						if (pos[i].cur) {
-							this[ground].fillStyle = translateColor(this[cursorBackgroundColor]);
+							this[ground].fillStyle = translateColor(this[cursorColor]);
 							this[ground].fillRect(pos[i].v + this[paddingLeft] - this[paddingX] / 2, y - this[fontSize] / 2, this[paddingX], this[fontSize] * 2);
 							this[ground].font = 'bold ' + this[fontSize] + 'px monospace';
-							this[ground].fillStyle = translateColor(this[cursorColor]);
+							this[ground].fillStyle = translateColor(this[cursorTextColor]);
 						}
 						this[ground].fillText(pos[i].text, pos[i].v + this[paddingLeft], y, this[paddingLeft] - this[fontSize]);
 					}
@@ -1028,10 +1028,10 @@ define(function () {
 					this[ground].fillStyle = translateColor(this[textColor]);
 					for (let i = 0; i < pos.length; i++) {
 						if (pos[i].cur) {
-							this[ground].fillStyle = translateColor(this[cursorBackgroundColor]);
+							this[ground].fillStyle = translateColor(this[cursorColor]);
 							this[ground].fillRect(0, pos[i].v, this[paddingLeft], this[fontSize] * 2);
 							this[ground].font = 'bold ' + this[fontSize] + 'px monospace';
-							this[ground].fillStyle = translateColor(this[cursorColor]);
+							this[ground].fillStyle = translateColor(this[cursorTextColor]);
 						}
 						this[ground].fillText(pos[i].text, x, pos[i].v + this[fontSize], this[paddingX] - this[fontSize]);
 					}
