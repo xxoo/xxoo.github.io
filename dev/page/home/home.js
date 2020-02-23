@@ -138,9 +138,9 @@ define(['module', 'common/kernel/kernel', 'common/chart/chart'], function (modul
 							2: Array(days.length).fill(0)
 						},
 						colors = [
-							[0.25, 0.75, 0.25, 0.75],
+							[0.25, 1, 0.25, 0.75],
 							[0.25, 0.25, 0.25, 0.75],
-							[0.75, 0.25, 0.25, 0.75]
+							[1, 0.25, 0.25, 0.75]
 						];
 					keys.sort(function (a, b) {
 						let aa = base[a],
@@ -224,6 +224,7 @@ define(['module', 'common/kernel/kernel', 'common/chart/chart'], function (modul
 		chart.clear();
 		chart.add(lines);
 		chart.setSections(sections);
+		chart.center();
 		ctx.clearRect(0, 0, 1, ctx.canvas.height);
 		ctx.canvas.height = names.length;
 		for (let i = 0; i < names.length; i++) {
@@ -234,7 +235,7 @@ define(['module', 'common/kernel/kernel', 'common/chart/chart'], function (modul
 	}
 
 	function translateColor(v) {
-		return 'rgb(' + calc(v) + ',' + calc(v > 0.5 ? 1 - v : v) + ',' + calc(1 - v) + ')';
+		return 'rgb(' + calc(v) + ',' + calc(1 - v) + ',' + calc(v > 0.5 ? 1 - v : v) + ')';
 
 		function calc(n) {
 			return Math.round(n * 255);
