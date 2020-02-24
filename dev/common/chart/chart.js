@@ -331,9 +331,10 @@ define(function () {
 		}
 		if (newlen !== len) {
 			if (this[cursor] >= this[begin] && this[cursor] <= this[end]) {
-				let l = newlen - len;
-				this[begin] += Math.round(l * (this[begin] - this[cursor]) / (this[end] - this[begin]));
-				this[end] += Math.round(l * (this[end] - this[cursor]) / (this[end] - this[begin]));
+				let l = newlen - len,
+					ll = this[end] - this[begin];
+				this[begin] += Math.round(l * (this[begin] - this[cursor]) / ll);
+				this[end] += Math.round(l * (this[end] - this[cursor]) / ll);
 			} else {
 				let l = (newlen - len) / 2;
 				this[begin] -= Math.ceil(l);
