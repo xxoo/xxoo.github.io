@@ -1,7 +1,6 @@
 'use strict';
 define(function () {
-	const colorful = Symbol('colorful'),
-		labeling = Symbol('labeling'),
+	const labeling = Symbol('labeling'),
 		cursor = Symbol('cursor'),
 		oldcursor = Symbol('oldcursor'),
 		width = Symbol('width'),
@@ -54,17 +53,16 @@ define(function () {
 		this[fontSize] = 8;
 		this[cursorColor] = [1, 0, 0, 1];
 		this[cursorTextColor] = [1, 1, 1, 1];
-		this[selectedColor] = [0, 0, 0, 1];
 		this[backgroundColor] = [1, 1, 1, 1];
-		this[outlineColor] = [0, 0, 0, 0.0625];
-		this[lineColor] = [0.75, 0.75, 0.75, 1];
+		this[outlineColor] = [1, 1, 1, 1];
+		this[selectedColor] = [0, 0, 0, 1];
+		this[lineColor] = [[0.75, 0.75, 0.75, 1]];
 		this[gridColor] = [0.75, 0.75, 1, 1];
 		this[rectColor] = [0, 0, 0, 1];
 		this[textColor] = [0, 0, 0, 1];
 		if (!useCross) {
 			this[cross] = NaN;
 		}
-		this[colorful] = false;
 		this[lines] = {};
 		this[stage] = ctn.appendChild(document.createElement('div'));
 		this[stage].style.width = this[stage].style.height = '100%';
@@ -101,7 +99,8 @@ define(function () {
 		let vert = this[gl].createShader(this[gl].VERTEX_SHADER),
 			frag = this[gl].createShader(this[gl].FRAGMENT_SHADER),
 			program = this[gl].createProgram();
-		this[gl].shaderSource(vert, `attribute vec2 POSITION;
+		this[gl].shaderSource(vert, `attribute vec4 POSITION;
+		attribute vec4 COLOR;
 		attribute float WV;
 		attribute float HV;
 		attribute float MAX;
@@ -109,18 +108,29 @@ define(function () {
 		attribute float OUTLINE;
 		attribute float X;
 		attribute float Y;
+		varying vec4 color;
+		void translateColor(float v1, float v2) {
+			float x = mod(v1, 256.0);
+			float z = mod(v2, 256.0);
+			color = vec4(x / 256.0, (v1 - x) / 256.0 / 256.0, z / 256.0, (v2 - z) / 256.0 / 256.0);
+		}
 		void main(void) {
+			if (COLOR.x >= 0.0 && COLOR.y >= 0.0 && COLOR.z >= 0.0 && COLOR.w >= 0.0) {
+				color = COLOR;
+			} else {
+				translateColor(POSITION.z, POSITION.w);
+			}
 			if (POSITION.y < 0.0 || POSITION.y >= 0.0) {
 				float x = (POSITION.x + OFFSET) / WV;
 				float y = (POSITION.y - MAX) / HV;
 				if (OUTLINE == 1.0) {
-					y = (Y * y + 0.5) / Y;
+					y = (Y * y + 1.0) / Y;
 				} else if (OUTLINE == 2.0) {
-					y = (Y * y - 0.5) / Y;
+					y = (Y * y - 1.0) / Y;
 				} else if (OUTLINE == 3.0) {
-					x = (X * x + 0.5) / X;
+					x = (X * x + 1.0) / X;
 				} else if (OUTLINE == 4.0) {
-					x = (X * x - 0.5) / X;
+					x = (X * x - 1.0) / X;
 				}
 				gl_Position = vec4(x * 2.0 - 1.0, y * 2.0 + 1.0, 0.0, 1.0);
 			} else if (X != 0.0) {
@@ -137,9 +147,10 @@ define(function () {
 				gl_Position = vec4(-1.0, -1.0, 0.0, 1.0);
 			}
 		}`);
-		this[gl].shaderSource(frag, `uniform lowp vec4 COLOR;
+		this[gl].shaderSource(frag, `precision mediump float;
+		varying vec4 color;
 		void main(void) {
-			gl_FragColor = COLOR;
+			gl_FragColor = color;
 		}`);
 		this[gl].compileShader(vert);
 		this[gl].compileShader(frag);
@@ -155,9 +166,9 @@ define(function () {
 		this[OUTLINE] = this[gl].getAttribLocation(program, 'OUTLINE');
 		this[X] = this[gl].getAttribLocation(program, 'X');
 		this[Y] = this[gl].getAttribLocation(program, 'Y');
-		this[COLOR] = this[gl].getUniformLocation(program, 'COLOR');
+		this[COLOR] = this[gl].getAttribLocation(program, 'COLOR');
 		this[gl].bindBuffer(this[gl].ARRAY_BUFFER, this[gl].createBuffer());
-		this[gl].vertexAttribPointer(this[POSITION], 2, this[gl].FLOAT, false, 0, 0);
+		this[gl].vertexAttribPointer(this[POSITION], 4, this[gl].FLOAT, false, 0, 0);
 		this[gl].enableVertexAttribArray(this[POSITION]);
 		if (self.ResizeObserver) {
 			new ResizeObserver(sizeChange.bind(this)).observe(this[stage]);
@@ -175,28 +186,35 @@ define(function () {
 		buildIndex.call(this);
 	}
 
-	Chart.prototype.add = function (data) {
+	Chart.prototype.setData = function (data) {
 		if (Number.isNaN(this[cross])) {
 			for (let c in data) {
-				let d = Array.isArray(data[c]) ? data[c] : data[c].data;
-				if (d.length > 1) {
+				if (!data[c]) {
+					delete this[lines][c];
+				} else if (data[c].data.length > 1) {
 					this[lines][c] = {
-						data: d,
+						data: data[c].data,
 						offset: data[c].offset | 0,
+						colors: data[c].colors || this[lineColor],
+						visible: 'visible' in data[c] ? data[c].visible : true,
 						tmax: -Infinity,
 						tmin: Infinity
 					};
-					for (let i = 0; i < d.length; i++) {
+					for (let i = 0; i < data[c].data.length; i++) {
 						checkMaxMin.call(this, c, i);
 					}
 				}
 			}
 		} else {
 			for (let c in data) {
-				if (data[c].data.length > 1 && data[c].cross >= 0 && data[c].cross < data[c].data.length) {
+				if (!data[c]) {
+					delete this[lines][c];
+				} else if (data[c].data.length > 1 && data[c].cross >= 0 && data[c].cross < data[c].data.length) {
 					this[lines][c] = {
 						data: [],
 						cross: data[c].cross,
+						colors: data[c].colors || this[lineColor],
+						visible: 'visible' in data[c] ? data[c].visible : true,
 						tmax: -Infinity,
 						tmin: Infinity
 					};
@@ -224,6 +242,15 @@ define(function () {
 		}
 	};
 
+	Chart.prototype.setVisibility = function(data) {
+		for (let c in data) {
+			if (this[lines][c]) {
+				this[lines][c].visible = data[c];
+			}
+		}
+		buildIndex.call(this, true);
+	};
+
 	Chart.prototype.remove = function (names) {
 		let refresh;
 		for (let i = 0; i < names.length; i++) {
@@ -246,23 +273,6 @@ define(function () {
 			this[lines] = {};
 			this[selected] = undefined;
 			buildIndex.call(this);
-			return true;
-		}
-	};
-
-	Chart.prototype.setSections = function (sections) {
-		let refresh = this[colorful];
-		for (let c in sections) {
-			if (this[lines].hasOwnProperty(c)) {
-				this[lines][c].starts = sections[c].starts;
-				this[lines][c].colors = sections[c].colors;
-				if (this[selected] === c) {
-					refresh = true;
-				}
-			}
-		}
-		if (refresh) {
-			draw.call(this);
 			return true;
 		}
 	};
@@ -407,16 +417,22 @@ define(function () {
 				return this[selected];
 			},
 			set: function (c) {
+				let idxchange;
 				c = String(c);
 				if (!this[lines].hasOwnProperty(c)) {
 					this[selected] = undefined;
 				} else if (this[selected] !== c) {
+					idxchange = !this[lines][c].visible || (this[selected] && !this[lines][this[selected]].visible);
 					this[selected] = c;
 				} else {
 					return;
 				}
-				this[cursor] = checkCursor.call(this, this[cursor]);
-				draw.call(this);
+				if (idxchange) {
+					buildIndex.call(this, true);
+				} else {
+					this[cursor] = checkCursor.call(this, this[cursor]);
+					draw.call(this);
+				}
 			}
 		},
 		paddingX: {
@@ -477,10 +493,10 @@ define(function () {
 		},
 		lineColor: {
 			get: function () {
-				return this[lineColor];
+				return this[lineColor][0];
 			},
 			set: function (c) {
-				this[lineColor] = c;
+				this[lineColor][0] = c;
 				draw.call(this);
 			}
 		},
@@ -520,18 +536,6 @@ define(function () {
 			set: function (c) {
 				this[textColor] = c;
 				draw.call(this);
-			}
-		},
-		colorful: {
-			get: function() {
-				return this[colorful];
-			},
-			set: function(b) {
-				b = Boolean(b);
-				if (this[colorful] !== b) {
-					this[colorful] = b;
-					draw.call(this);
-				}
 			}
 		}
 	});
@@ -573,36 +577,40 @@ define(function () {
 		this[minLen] = Math.min(Math.floor(getWidth.call(this) / this[paddingX]), this[length] - 1);
 	}
 
-	function buildIndex() {
+	function buildIndex(skipBuffering) {
 		let i = this[length] = 0;
 		if (Number.isNaN(this[cross])) {
 			let first = Infinity;
 			for (let c in this[lines]) {
-				if (first > this[lines][c].offset) {
+				if ((this[lines][c].visible || this[selected] === c) && first > this[lines][c].offset) {
 					first = this[lines][c].offset;
 				}
+				i += this[lines][c].data.length;
 			}
 			for (let c in this[lines]) {
 				this[lines][c].offset -= first;
-				let l = this[lines][c].offset + this[lines][c].data.length;
-				if (this[length] < l) {
-					this[length] = l;
+				if (this[lines][c].visible || this[selected] === c) {
+					let l = this[lines][c].offset + this[lines][c].data.length;
+					if (this[length] < l) {
+						this[length] = l;
+					}
 				}
-				i += this[lines][c].data.length;
 			}
 		} else {
 			this[cross] = 0;
 			for (let c in this[lines]) {
-				if (this[cross] < this[lines][c].cross) {
+				if (this[lines][c].visible && this[cross] < this[lines][c].cross) {
 					this[cross] = this[lines][c].cross;
 				}
 				i += this[lines][c].data.length;
 			}
 			for (let c in this[lines]) {
 				this[lines][c].offset = this[cross] - this[lines][c].cross;
-				let l = this[lines][c].offset + this[lines][c].data.length;
-				if (this[length] < l) {
-					this[length] = l;
+				if (this[lines][c].visible) {
+					let l = this[lines][c].offset + this[lines][c].data.length;
+					if (this[length] < l) {
+						this[length] = l;
+					}
 				}
 			}
 		}
@@ -612,18 +620,26 @@ define(function () {
 		this[begin] = range[0];
 		this[end] = range[1];
 		this[oldbegin] = this[oldend] = this[oldcursor] = undefined;
-		//first 8 numbers are for other use
-		let data = new Float32Array(i * 2 + 8);
-		data.set([-1, NaN, 1, NaN, 2, NaN, 3, NaN]);
-		i = 8;
-		for (let c in this[lines]) {
-			let line = this[lines][c];
-			for (let j = 0; j < line.data.length; j++) {
-				data[i++] = j;
-				data[i++] = line.data[j];
+		if (!skipBuffering) {
+			//first 4 points are for other use
+			let data = new Float32Array(i * 4 + 16);
+			data.set([-1, NaN, NaN, NaN, 1, NaN, NaN, NaN, 2, NaN, NaN, NaN, 3, NaN, NaN, NaN]);
+			i = 16;
+			for (let c in this[lines]) {
+				let line = this[lines][c],
+					lastColor;
+				for (let j = 0; j < line.data.length; j++) {
+					if (line.colors[j]) {
+						lastColor = translateColor(line.colors[j], true);
+					}
+					data[i++] = j;
+					data[i++] = line.data[j];
+					data[i++] = lastColor[0];
+					data[i++] = lastColor[1];
+				}
 			}
+			this[gl].bufferData(this[gl].ARRAY_BUFFER, data, this[gl].STATIC_DRAW);
 		}
-		this[gl].bufferData(this[gl].ARRAY_BUFFER, data, this[gl].STATIC_DRAW);
 		draw.call(this);
 	}
 
@@ -671,97 +687,99 @@ define(function () {
 		if (this[length] > 1) {
 			if (fireRangeChange) {
 				for (let c in this[lines]) {
-					let line = this[lines][c],
-						bg = Math.max(this[begin] - line.offset, 0),
-						ed = Math.min(this[end] - line.offset, line.data.length - 1),
-						obg = Math.max(this[oldbegin] - line.offset, 0),
-						oed = Math.min(this[oldend] - line.offset, line.data.length - 1);
-					if (bg !== obg || ed !== oed) {
-						if (ed > 0 && bg < line.data.length - 1) {
-							let findmax, findmin;
-							if (line.tmaxi >= bg && line.tmaxi <= ed) {
-								line.max = line.tmax;
-								line.maxi = line.tmaxi;
-							} else {
-								findmax = true;
-							}
-							if (line.tmini >= bg && line.tmini <= ed) {
-								line.min = line.tmin;
-								line.mini = line.tmini;
-							} else {
-								findmin = true;
-							}
-							if (findmax || findmin) {
-								if (bg > obg && ed < oed) {
-									if (findmax && (line.maxi < bg || line.maxi > ed)) {
-										line.max = -Infinity;
-									}
-									if (findmin && (line.mini < bg || line.mini > ed)) {
-										line.min = Infinity;
-									}
-								} else if (bg > obg && bg < oed) {
-									if (findmax && line.maxi < bg) {
-										line.max = -Infinity;
-									}
-									if (findmin && line.mini < bg) {
-										line.min = Infinity;
-									}
-									findMaxMin.call(this, oed + 1, ed, findmax && line.max !== -Infinity, findmin && line.min !== Infinity);
-								} else if (ed > obg && ed < oed) {
-									if (findmax && line.maxi > ed) {
-										line.max = -Infinity;
-									}
-									if (findmin && line.mini > ed) {
-										line.min = Infinity;
-									}
-									findMaxMin.call(this, bg, obg - 1, findmax && line.max !== -Infinity, findmin && line.min !== Infinity);
-								} else if (bg <= obg && ed >= oed) {
-									findMaxMin.call(this, bg, obg - 1, findmax, findmin);
-									findMaxMin.call(this, oed + 1, ed, findmax, findmin);
+					let line = this[lines][c];
+					if (line.visible || this[selected] === c) {
+						let bg = Math.max(this[begin] - line.offset, 0),
+							ed = Math.min(this[end] - line.offset, line.data.length - 1),
+							obg = Math.max(this[oldbegin] - line.offset, 0),
+							oed = Math.min(this[oldend] - line.offset, line.data.length - 1);
+						if (bg !== obg || ed !== oed) {
+							if (ed > 0 && bg < line.data.length - 1) {
+								let findmax, findmin;
+								if (line.tmaxi >= bg && line.tmaxi <= ed) {
+									line.max = line.tmax;
+									line.maxi = line.tmaxi;
 								} else {
-									if (findmax) {
-										line.max = -Infinity;
-									}
-									if (findmin) {
-										line.min = Infinity;
-									}
+									findmax = true;
 								}
-								findMaxMin.call(this, bg, ed, line.max === -Infinity, line.min === Infinity);
+								if (line.tmini >= bg && line.tmini <= ed) {
+									line.min = line.tmin;
+									line.mini = line.tmini;
+								} else {
+									findmin = true;
+								}
+								if (findmax || findmin) {
+									if (bg > obg && ed < oed) {
+										if (findmax && (line.maxi < bg || line.maxi > ed)) {
+											line.max = -Infinity;
+										}
+										if (findmin && (line.mini < bg || line.mini > ed)) {
+											line.min = Infinity;
+										}
+									} else if (bg > obg && bg < oed) {
+										if (findmax && line.maxi < bg) {
+											line.max = -Infinity;
+										}
+										if (findmin && line.mini < bg) {
+											line.min = Infinity;
+										}
+										findMaxMin.call(this, oed + 1, ed, findmax && line.max !== -Infinity, findmin && line.min !== Infinity);
+									} else if (ed > obg && ed < oed) {
+										if (findmax && line.maxi > ed) {
+											line.max = -Infinity;
+										}
+										if (findmin && line.mini > ed) {
+											line.min = Infinity;
+										}
+										findMaxMin.call(this, bg, obg - 1, findmax && line.max !== -Infinity, findmin && line.min !== Infinity);
+									} else if (bg <= obg && ed >= oed) {
+										findMaxMin.call(this, bg, obg - 1, findmax, findmin);
+										findMaxMin.call(this, oed + 1, ed, findmax, findmin);
+									} else {
+										if (findmax) {
+											line.max = -Infinity;
+										}
+										if (findmin) {
+											line.min = Infinity;
+										}
+									}
+									findMaxMin.call(this, bg, ed, line.max === -Infinity, line.min === Infinity);
+								}
+							} else {
+								line.max = -Infinity;
+								line.min = Infinity;
+								line.maxi = line.mini = NaN;
 							}
-						} else {
-							line.max = -Infinity;
-							line.min = Infinity;
-							line.maxi = line.mini = NaN;
 						}
-					}
-
-					function findMaxMin(bg, ed, findmax, findmin) {
-						if (findmax && findmin) {
-							for (let i = bg; i <= ed; i++) {
-								let v = line.data[i];
-								if (line.max < v) {
-									line.max = v;
-									line.maxi = i;
+	
+						function findMaxMin(bg, ed, findmax, findmin) {
+							if (findmax && findmin) {
+								for (let i = bg; i <= ed; i++) {
+									let v = line.data[i];
+									if (line.max < v) {
+										line.max = v;
+										line.maxi = i;
+									}
+									if (line.min > v) {
+										line.min = v;
+										line.mini = i;
+									}
 								}
-								if (line.min > v) {
-									line.min = v;
-									line.mini = i;
+							} else if (findmax) {
+								for (let i = bg; i <= ed; i++) {
+									let v = line.data[i];
+									if (line.max < v) {
+										line.max = v;
+										line.maxi = i;
+									}
 								}
-							}
-						} else if (findmax) {
-							for (let i = bg; i <= ed; i++) {
-								let v = line.data[i];
-								if (line.max < v) {
-									line.max = v;
-									line.maxi = i;
-								}
-							}
-						} else if (findmin) {
-							for (let i = bg; i <= ed; i++) {
-								let v = line.data[i];
-								if (line.min > v) {
-									line.min = v;
-									line.mini = i;
+							} else if (findmin) {
+								for (let i = bg; i <= ed; i++) {
+									let v = line.data[i];
+									if (line.min > v) {
+										line.min = v;
+										line.mini = i;
+									}
 								}
 							}
 						}
@@ -771,11 +789,13 @@ define(function () {
 				this[min] = Infinity;
 				for (let c in this[lines]) {
 					let line = this[lines][c];
-					if (this[max] < line.max) {
-						this[max] = line.max;
-					}
-					if (this[min] > line.min) {
-						this[min] = line.min;
+					if (line.visible || this[selected === c]) {
+						if (this[max] < line.max) {
+							this[max] = line.max;
+						}
+						if (this[min] > line.min) {
+							this[min] = line.min;
+						}
 					}
 				}
 			}
@@ -906,15 +926,13 @@ define(function () {
 			this[gl].vertexAttrib1f(this[WV], wv);
 			this[gl].vertexAttrib1f(this[HV], hv);
 			this[gl].vertexAttrib1f(this[MAX], this[max]);
-			this[gl].uniform4f(this[COLOR], this[lineColor][0], this[lineColor][1], this[lineColor][2], this[lineColor][3]);
+			this[gl].vertexAttrib4f(this[COLOR], NaN, NaN, NaN, NaN);
 			for (let c in this[lines]) {
 				let line = this[lines][c];
-				if (c === this[selected]) {
-					selPos = pos;
-				} else if (line.offset < this[end] && line.data.length - 1 > this[begin] - line.offset) {
-					if (this[colorful]) {
-						drawColorfulLine.call(this, line, pos);
-					} else {
+				if (line.visible) {
+					if (c === this[selected]) {
+						selPos = pos;
+					} else if (line.offset < this[end] && line.data.length - 1 > this[begin] - line.offset) {
 						let bg = Math.max(this[begin] - line.offset, 0);
 						this[gl].vertexAttrib1f(this[OFFSET], line.offset - this[begin]);
 						this[gl].drawArrays(this[gl].LINE_STRIP, pos + bg, Math.min(this[end] - line.offset + 1, line.data.length) - bg);
@@ -922,16 +940,16 @@ define(function () {
 				}
 				pos += line.data.length;
 			}
-			this[gl].uniform4f(this[COLOR], this[gridColor][0], this[gridColor][1], this[gridColor][2], this[gridColor][3]);
+			this[gl].vertexAttrib4f(this[COLOR], this[gridColor][0], this[gridColor][1], this[gridColor][2], this[gridColor][3]);
 			drawxy.call(this, xys);
-			this[gl].uniform4f(this[COLOR], this[cursorColor][0], this[cursorColor][1], this[cursorColor][2], this[cursorColor][3]);
+			this[gl].vertexAttrib4f(this[COLOR], this[cursorColor][0], this[cursorColor][1], this[cursorColor][2], this[cursorColor][3]);
 			drawxy.call(this, curs);
 			if (this[selected] !== undefined && this[lines][this[selected]].offset < this[end] && this[lines][this[selected]].data.length - 1 > this[begin] - this[lines][this[selected]].offset) {
 				let line = this[lines][this[selected]],
 					bg = Math.max(this[begin] - line.offset, 0),
 					p = selPos + bg,
 					l = Math.min(this[end] - line.offset + 1, line.data.length) - bg;
-				this[gl].uniform4f(this[COLOR], this[outlineColor][0], this[outlineColor][1], this[outlineColor][2], this[outlineColor][3]);
+				this[gl].vertexAttrib4f(this[COLOR], this[outlineColor][0], this[outlineColor][1], this[outlineColor][2], this[outlineColor][3]);
 				this[gl].vertexAttrib1f(this[OFFSET], line.offset - this[begin]);
 				this[gl].vertexAttrib1f(this[X], w * devicePixelRatio);
 				this[gl].vertexAttrib1f(this[Y], h * devicePixelRatio);
@@ -940,36 +958,15 @@ define(function () {
 					this[gl].drawArrays(this[gl].LINE_STRIP, p, l);
 				}
 				this[gl].vertexAttrib1f(this[OUTLINE], 0);
-				drawColorfulLine.call(this, line, selPos);
+				if (line.colors === this[lineColor]) {
+					this[gl].vertexAttrib4f(this[COLOR], this[selectedColor][0], this[selectedColor][1], this[selectedColor][2], this[selectedColor][3]);
+				} else {
+					this[gl].vertexAttrib4f(this[COLOR], NaN, NaN, NaN, NaN);
+				}
+				this[gl].drawArrays(this[gl].LINE_STRIP, p, l);
 			}
 			drawText.call(this, xtxts, true);
 			drawText.call(this, ytxts);
-
-			function drawColorfulLine(line, p) {
-				let bg = Math.max(this[begin] - line.offset, 0),
-					colors = [],
-					starts = [bg];
-				if (line.starts) {
-					for (let i = 0; i < line.starts.length; i++) {
-						if (line.starts[i] <= bg) {
-							colors[0] = line.colors[i];
-						} else if (line.starts[i] < this[end] - line.offset) {
-							starts.push(line.starts[i]);
-							colors.push(line.colors[i]);
-						} else {
-							break;
-						}
-					}
-				}
-				if (colors.length < starts.length) {
-					colors.unshift(this[selectedColor]);
-				}
-				for (let i = 0; i < starts.length; i++) {
-					this[gl].vertexAttrib1f(this[OFFSET], line.offset - this[begin]);
-					this[gl].uniform4f(this[COLOR], colors[i][0], colors[i][1], colors[i][2], colors[i][3]);
-					this[gl].drawArrays(this[gl].LINE_STRIP, p + starts[i], (i === starts.length - 1 ? Math.min(this[end] - line.offset + 1, line.data.length) : starts[i + 1] + 1) - starts[i]);
-				}
-			}
 
 			function pushx(i) {
 				let x = i - this[begin];
@@ -1040,7 +1037,7 @@ define(function () {
 		}
 		this[gl].vertexAttrib1f(this[X], 0);
 		this[gl].vertexAttrib1f(this[Y], 0);
-		this[gl].uniform4f(this[COLOR], this[rectColor][0], this[rectColor][1], this[rectColor][2], this[rectColor][3]);
+		this[gl].vertexAttrib4f(this[COLOR], this[rectColor][0], this[rectColor][1], this[rectColor][2], this[rectColor][3]);
 		this[gl].drawArrays(this[gl].LINE_LOOP, 0, 4);
 		this[paiting] = 0;
 		this[oldbegin] = this[begin];
@@ -1065,8 +1062,8 @@ define(function () {
 		}
 	}
 
-	function translateColor(c) {
-		return 'rgba(' + Math.round(c[0] * 255) + ',' + Math.round(c[1] * 255) + ',' + Math.round(c[2] * 255) + ', ' + c[3] + ')';
+	function translateColor(c, toVec2) {
+		return toVec2 ? [Math.round(c[0] * 255) + Math.round(c[1] * 255) * 256, Math.round(c[2] * 255) + Math.round(c[3] * 255) * 256] : 'rgba(' + Math.round(c[0] * 255) + ',' + Math.round(c[1] * 255) + ',' + Math.round(c[2] * 255) + ', ' + c[3] + ')';
 	}
 
 	function mousedown(evt) {
