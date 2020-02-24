@@ -5,29 +5,23 @@ define(['module', 'common/kernel/kernel', 'common/chart/chart'], function (modul
 		chart = new Chart(dom.querySelector('.chart'), true),
 		subchart = new Chart(dom.querySelector('.subchart'), false, true),
 		url = 'https://trade.tinysoft.com.cn/webapi/api2.tsl',
-		cs = [
-			[{}, {}],
-			[{}, {}],
-			[{}, {}]
-		],
+		cs = [{}, {}, {}],
 		allLines = {},
-		allSections = {},
 		name = dom.querySelector('.list>.name'),
 		ctx = dom.querySelector('.list>.canvas>canvas').getContext('2d'),
 		arr = dom.querySelector('.list>span'),
-		names, lines, sections, days;
+		names, days;
 	//chart.paddingLeft = subchart.paddingLeft = 60;
 	//chart.paddingX = subchart.paddingX = 70;
-	subchart.colorful = true;
 	subchart.labeling = function (v, isy) {
 		return isy ? Math.round(v * 1000) / 10 + '%' : new Date(tslDateToVal(days[v])).toISOString().replace(/T.*$/, '');
 	};
 	chart.labeling = function (i, isy) {
-		return isy ? Math.round(lines[chart.selected].data[i] / lines[chart.selected].rate * 100) / 100 : new Date(tslDateToVal(days[i + lines[chart.selected].offset])).toISOString().replace(/T.*$/, '');
+		return isy ? Math.round(allLines[chart.selected].data[i] / allLines[chart.selected].rate * 100) / 100 : new Date(tslDateToVal(days[i + allLines[chart.selected].offset])).toISOString().replace(/T.*$/, '');
 	};
 	chart.onrangechange = function() {
 		if (chart.selected) {
-			let offset = chart.cross - lines[chart.selected].cross - lines[chart.selected].offset;
+			let offset = chart.cross - allLines[chart.selected].cross - allLines[chart.selected].offset;
 			subchart.setRange(chart.begin - offset, chart.end - offset);
 		}
 	};
@@ -132,16 +126,25 @@ define(['module', 'common/kernel/kernel', 'common/chart/chart'], function (modul
 					let cross = jsons[0].Result,
 						base = jsons[1].base,
 						keys = Object.keys(cross),
-						stats = {
-							0: Array(days.length).fill(0),
-							1: Array(days.length).fill(0),
-							2: Array(days.length).fill(0)
-						},
 						colors = [
 							[0.25, 1, 0.25, 0.75],
 							[0.25, 0.25, 0.25, 0.75],
 							[1, 0.25, 0.25, 0.75]
-						];
+						],
+						stats = {
+							0: {
+								data: Array(days.length).fill(0),
+								colors: [colors[0]]
+							},
+							1: {
+								data: Array(days.length).fill(0),
+								colors: [colors[1]]
+							},
+							2: {
+								data: Array(days.length).fill(0),
+								colors: [colors[2]]
+							}
+						};
 					keys.sort(function (a, b) {
 						let aa = base[a],
 							bb = base[b];
@@ -156,23 +159,18 @@ define(['module', 'common/kernel/kernel', 'common/chart/chart'], function (modul
 								data: [],
 								cross: j - d[1],
 								name: d[0],
-								offset: d[1]
-							};
-							allSections[keys[i]] = {
-								starts: [],
+								offset: d[1],
 								colors: []
 							};
 							for (let k = 2; k < d.length; k++) {
-								stats[d[k][3]][k + d[1] - 2]++;
+								stats[d[k][3]].data[k + d[1] - 2]++;
 								if (lastd3 !== d[k][3]) {
 									lastd3 = d[k][3];
-									allSections[keys[i]].starts.push(allLines[keys[i]].data.length);
-									allSections[keys[i]].colors.push(colors[d[k][3]]);
+									allLines[keys[i]].colors[allLines[keys[i]].data.length] = colors[d[k][3]];
 								}
 								allLines[keys[i]].data.push(d[k][0] * d[k][1]);
 								if (k === d.length - 1) {
-									cs[d[k][3]][0][keys[i]] = allLines[keys[i]];
-									cs[d[k][3]][1][keys[i]] = allSections[keys[i]];
+									cs[d[k][3]][keys[i]] = true;
 									allLines[keys[i]].color = translateColor(d[k][2]);
 									allLines[keys[i]].rate = d[k][1];
 								}
@@ -180,27 +178,15 @@ define(['module', 'common/kernel/kernel', 'common/chart/chart'], function (modul
 						}
 					}
 					for (let i = 0; i < days.length; i++) {
-						let all = stats[0][i] + stats[1][i] + stats[2][i];
-						stats[0][i] /= all;
-						stats[1][i] /= all;
-						stats[2][i] /= all;
+						let all = stats[0].data[i] + stats[1].data[i] + stats[2].data[i];
+						stats[0].data[i] /= all;
+						stats[1].data[i] /= all;
+						stats[2].data[i] /= all;
 					}
+					chart.clear();
+					chart.setData(allLines);
 					subchart.clear();
-					subchart.add(stats);
-					subchart.setSections({
-						0: {
-							starts: [0],
-							colors: [colors[0]]
-						},
-						1: {
-							starts: [0],
-							colors: [colors[1]]
-						},
-						2: {
-							starts: [0],
-							colors: [colors[2]]
-						}
-					});
+					subchart.setData(stats);
 					show();
 					kernel.hideLoading();
 				});
@@ -211,24 +197,27 @@ define(['module', 'common/kernel/kernel', 'common/chart/chart'], function (modul
 	};
 
 	function show() {
+		let visible = {};
 		if (kernel.location.args.c >= 0 && kernel.location.args.c < cs.length) {
-			lines = cs[kernel.location.args.c][0];
-			sections = cs[kernel.location.args.c][1];
+			for (let n in allLines) {
+				visible[n] = cs[kernel.location.args.c][n];
+			}
 			subchart.selected = kernel.location.args.c;
+			names = Object.keys(cs[kernel.location.args.c]);
 		} else {
-			lines = allLines;
-			sections = allSections;
+			for (let n in allLines) {
+				visible[n] = true;
+			}
 			subchart.selected = undefined;
+			names = Object.keys(allLines);
 		}
-		names = Object.keys(lines);
-		chart.clear();
-		chart.add(lines);
-		chart.setSections(sections);
+		chart.setVisibility(visible);
+		chart.cursor = chart.cross;
 		chart.center();
 		ctx.clearRect(0, 0, 1, ctx.canvas.height);
 		ctx.canvas.height = names.length;
 		for (let i = 0; i < names.length; i++) {
-			ctx.fillStyle = lines[names[i]].color;
+			ctx.fillStyle = allLines[names[i]].color;
 			ctx.fillRect(0, i, 1, 1);
 		}
 		selectStock(0);
@@ -268,7 +257,7 @@ define(['module', 'common/kernel/kernel', 'common/chart/chart'], function (modul
 	function selectStock(y) {
 		arr.style.top = 36.5 + y + 'px';
 		chart.selected = names[Math.round((y / ctx.canvas.offsetHeight) * (names.length - 1))];
-		name.innerHTML = lines[chart.selected].name + '<span>' + chart.selected + '</span>';
+		name.innerHTML = allLines[chart.selected].name + '<span>' + chart.selected + '</span>';
 		chart.onrangechange();
 	}
 
