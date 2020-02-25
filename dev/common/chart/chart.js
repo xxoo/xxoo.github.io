@@ -112,7 +112,7 @@ define(function () {
 		void translateColor(float v1, float v2) {
 			float x = mod(v1, 256.0);
 			float z = mod(v2, 256.0);
-			color = vec4(x / 256.0, (v1 - x) / 256.0 / 256.0, z / 256.0, (v2 - z) / 256.0 / 256.0);
+			color = vec4(x / 255.0, (v1 - x) / 255.0 / 256.0, z / 255.0, (v2 - z) / 255.0 / 256.0);
 		}
 		void main(void) {
 			if (COLOR.x >= 0.0 && COLOR.y >= 0.0 && COLOR.z >= 0.0 && COLOR.w >= 0.0) {
@@ -498,7 +498,7 @@ define(function () {
 			},
 			set: function (c) {
 				this[lineColor][0] = c;
-				draw.call(this);
+				buildIndex.call(this);
 			}
 		},
 		cursorColor: {
