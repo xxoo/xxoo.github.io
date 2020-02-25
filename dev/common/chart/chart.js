@@ -5,6 +5,7 @@ define(function () {
 		oldcursor = Symbol('oldcursor'),
 		width = Symbol('width'),
 		height = Symbol('height'),
+		points = Symbol('points'),
 		length = Symbol('length'),
 		cursorColor = Symbol('cursorColor'),
 		cursorTextColor = Symbol('cursorTextColor'),
@@ -112,7 +113,7 @@ define(function () {
 		void translateColor(float v1, float v2) {
 			float x = mod(v1, 256.0);
 			float z = mod(v2, 256.0);
-			color = vec4(x / 256.0, (v1 - x) / 256.0 / 256.0, z / 256.0, (v2 - z) / 256.0 / 256.0);
+			color = vec4(x / 255.0, (v1 - x) / 255.0 / 256.0, z / 255.0, (v2 - z) / 255.0 / 256.0);
 		}
 		void main(void) {
 			if (COLOR.x >= 0.0 && COLOR.y >= 0.0 && COLOR.z >= 0.0 && COLOR.w >= 0.0) {
@@ -183,7 +184,7 @@ define(function () {
 			frame.contentWindow.addEventListener('resize', sizeChange.bind(this));
 		}
 		syncSize.call(this);
-		buildIndex.call(this);
+		initData.call(this);
 	}
 
 	Chart.prototype.setData = function (data) {
@@ -228,7 +229,7 @@ define(function () {
 				}
 			}
 		}
-		buildIndex.call(this);
+		initData.call(this);
 
 		function checkMaxMin(c, i) {
 			if (this[lines][c].tmax < this[lines][c].data[i]) {
@@ -248,7 +249,7 @@ define(function () {
 				this[lines][c].visible = data[c];
 			}
 		}
-		buildIndex.call(this, true);
+		initData.call(this, true);
 	};
 
 	Chart.prototype.remove = function (names) {
@@ -263,7 +264,7 @@ define(function () {
 			if (this[selected] !== undefined && !this[lines].hasOwnProperty(this[selected])) {
 				this[selected] = undefined;
 			}
-			buildIndex.call(this);
+			initData.call(this);
 			return true;
 		}
 	};
@@ -272,7 +273,7 @@ define(function () {
 		if (this[length]) {
 			this[lines] = {};
 			this[selected] = undefined;
-			buildIndex.call(this);
+			initData.call(this);
 			return true;
 		}
 	};
@@ -429,7 +430,7 @@ define(function () {
 					return;
 				}
 				if (idxchange) {
-					buildIndex.call(this, true);
+					initData.call(this, 'buffering');
 				} else {
 					this[cursor] = checkCursor.call(this, this[cursor]);
 					draw.call(this);
@@ -498,7 +499,7 @@ define(function () {
 			},
 			set: function (c) {
 				this[lineColor][0] = c;
-				draw.call(this);
+				initData.call(this, 'indexing');
 			}
 		},
 		cursorColor: {
@@ -578,54 +579,56 @@ define(function () {
 		this[minLen] = Math.min(Math.floor(getWidth.call(this) / this[paddingX]), this[length] - 1);
 	}
 
-	function buildIndex(skipBuffering) {
-		let i = this[length] = 0;
-		if (Number.isNaN(this[cross])) {
-			let first = Infinity;
-			for (let c in this[lines]) {
-				if ((this[lines][c].visible || this[selected] === c) && first > this[lines][c].offset) {
-					first = this[lines][c].offset;
+	function initData(skip) {
+		if (skip !== 'indexing') {
+			this[points] = this[length] = 0;
+			if (Number.isNaN(this[cross])) {
+				let first = Infinity;
+				for (let c in this[lines]) {
+					if ((this[lines][c].visible || this[selected] === c) && first > this[lines][c].offset) {
+						first = this[lines][c].offset;
+					}
+					this[points] += this[lines][c].data.length;
 				}
-				i += this[lines][c].data.length;
-			}
-			for (let c in this[lines]) {
-				this[lines][c].offset -= first;
-				if (this[lines][c].visible || this[selected] === c) {
-					let l = this[lines][c].offset + this[lines][c].data.length;
-					if (this[length] < l) {
-						this[length] = l;
+				for (let c in this[lines]) {
+					this[lines][c].offset -= first;
+					if (this[lines][c].visible || this[selected] === c) {
+						let l = this[lines][c].offset + this[lines][c].data.length;
+						if (this[length] < l) {
+							this[length] = l;
+						}
+					}
+				}
+			} else {
+				this[cross] = 0;
+				for (let c in this[lines]) {
+					if (this[lines][c].visible && this[cross] < this[lines][c].cross) {
+						this[cross] = this[lines][c].cross;
+					}
+					this[points] += this[lines][c].data.length;
+				}
+				for (let c in this[lines]) {
+					this[lines][c].offset = this[cross] - this[lines][c].cross;
+					if (this[lines][c].visible) {
+						let l = this[lines][c].offset + this[lines][c].data.length;
+						if (this[length] < l) {
+							this[length] = l;
+						}
 					}
 				}
 			}
-		} else {
-			this[cross] = 0;
-			for (let c in this[lines]) {
-				if (this[lines][c].visible && this[cross] < this[lines][c].cross) {
-					this[cross] = this[lines][c].cross;
-				}
-				i += this[lines][c].data.length;
-			}
-			for (let c in this[lines]) {
-				this[lines][c].offset = this[cross] - this[lines][c].cross;
-				if (this[lines][c].visible) {
-					let l = this[lines][c].offset + this[lines][c].data.length;
-					if (this[length] < l) {
-						this[length] = l;
-					}
-				}
-			}
+			calcLen.call(this);
+			this[cursor] = checkCursor.call(this, this[cursor]);
+			let range = checkRange.call(this, this[begin], this[end]);
+			this[begin] = range[0];
+			this[end] = range[1];
+			this[oldbegin] = this[oldend] = this[oldcursor] = undefined;
 		}
-		calcLen.call(this);
-		this[cursor] = checkCursor.call(this, this[cursor]);
-		let range = checkRange.call(this, this[begin], this[end]);
-		this[begin] = range[0];
-		this[end] = range[1];
-		this[oldbegin] = this[oldend] = this[oldcursor] = undefined;
-		if (!skipBuffering) {
+		if (skip !== 'buffering') {
 			//first 4 points are for other use
-			let data = new Float32Array(i * 4 + 16);
+			let i = 16,
+				data = new Float32Array(this[points] * 4 + i);
 			data.set([-1, NaN, NaN, NaN, 1, NaN, NaN, NaN, 2, NaN, NaN, NaN, 3, NaN, NaN, NaN]);
-			i = 16;
 			for (let c in this[lines]) {
 				let line = this[lines][c],
 					lastColor;
