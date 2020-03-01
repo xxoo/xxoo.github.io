@@ -262,6 +262,6 @@ define(['module', 'common/kernel/kernel', 'common/chart/chart'], function (modul
 	}
 
 	function tslDateToVal(v) {
-		return Math.round(v * 86400000) - 2209190743000;
+		return Math.round(v * 86400000) - 2209190400000;
 	}
 });
