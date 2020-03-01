@@ -100,6 +100,8 @@ define(function () {
 		let vert = this[gl].createShader(this[gl].VERTEX_SHADER),
 			frag = this[gl].createShader(this[gl].FRAGMENT_SHADER),
 			program = this[gl].createProgram();
+		this[gl].enable(this[gl].BLEND);
+		this[gl].blendFunc(this[gl].SRC_ALPHA, this[gl].ONE_MINUS_SRC_ALPHA);
 		this[gl].shaderSource(vert, `attribute vec4 POSITION;
 		attribute vec4 COLOR;
 		attribute float WV;
@@ -110,16 +112,18 @@ define(function () {
 		attribute float X;
 		attribute float Y;
 		varying vec4 color;
-		void translateColor(float v1, float v2) {
-			float x = mod(v1, 256.0);
-			float z = mod(v2, 256.0);
-			color = vec4(x / 255.0, (v1 - x) / 255.0 / 256.0, z / 255.0, (v2 - z) / 255.0 / 256.0);
-		}
 		void main(void) {
 			if (COLOR.x >= 0.0 && COLOR.y >= 0.0 && COLOR.z >= 0.0 && COLOR.w >= 0.0) {
 				color = COLOR;
 			} else {
-				translateColor(POSITION.z, POSITION.w);
+				color.x = mod(POSITION.z, 256.0);
+				color.y = (POSITION.z - color.x) / 256.0;
+				color.z = mod(POSITION.w, 256.0);
+				color.w = (POSITION.w - color.z) / 256.0;
+				color /= 255.0;
+				if (COLOR.w >= 0.0) {
+					color.w = COLOR.w;
+				}
 			}
 			if (POSITION.y < 0.0 || POSITION.y >= 0.0) {
 				float x = (POSITION.x + OFFSET) / WV;
@@ -249,7 +253,16 @@ define(function () {
 				this[lines][c].visible = data[c];
 			}
 		}
-		initData.call(this, true);
+		initData.call(this, 'buffing');
+	};
+
+	Chart.prototype.setColor = function(colors) {
+		for (let c in colors) {
+			if (this[lines][c]) {
+				this[lines][c].colors = colors[c] ? colors[c] : this[lineColor];
+			}
+		}
+		initData.call(this, 'buffing');
 	};
 
 	Chart.prototype.remove = function (names) {
@@ -365,6 +378,11 @@ define(function () {
 	};
 
 	Object.defineProperties(Chart.prototype, {
+		points: {
+			get: function() {
+				return this[points];
+			}
+		},
 		length: {
 			get: function () {
 				return this[length];
@@ -965,7 +983,7 @@ define(function () {
 				if (line.colors === this[lineColor]) {
 					this[gl].vertexAttrib4f(this[COLOR], this[selectedColor][0], this[selectedColor][1], this[selectedColor][2], this[selectedColor][3]);
 				} else {
-					this[gl].vertexAttrib4f(this[COLOR], NaN, NaN, NaN, NaN);
+					this[gl].vertexAttrib4f(this[COLOR], NaN, NaN, NaN, 1);
 				}
 				this[gl].drawArrays(this[gl].LINE_STRIP, p, l);
 			}
